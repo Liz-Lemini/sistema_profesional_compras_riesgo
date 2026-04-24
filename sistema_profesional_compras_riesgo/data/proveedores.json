@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "nombre": "Aceros del Bajio S.A. de C.V.",
+    "sector": "Metales industriales",
+    "contacto": "compras@acerosbajio.com.mx"
+  },
+  {
+    "id": 2,
+    "nombre": "Componentes Delta Industrial",
+    "sector": "Refacciones y ensambles",
+    "contacto": "ventas@deltaindustrial.com"
+  },
+  {
+    "id": 3,
+    "nombre": "Logistica Integral MX",
+    "sector": "Cadena de suministro",
+    "contacto": "ejecutivo@logisticaintegralmx.com"
+  }
+]

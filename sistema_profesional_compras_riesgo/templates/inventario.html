@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Inventario | Sistema Profesional de Compras{% endblock %}
+
+{% block content %}
+  <section class="hero p-4 p-lg-5 mb-4">
+    <div class="row g-4 align-items-center position-relative">
+      <div class="col-lg-8">
+        <p class="text-uppercase small fw-semibold mb-2">Planeación de abasto</p>
+        <h1 class="display-5 mb-3">Inventario rezagado y estudio de mercado</h1>
+        <p class="lead mb-0">
+          Detecta capital inmovilizado, exceso de stock y oportunidades de renegociación
+          con base en referencias del mercado.
+        </p>
+      </div>
+      <div class="col-lg-4">
+        <div class="glass-card p-4">
+          <div class="small text-uppercase fw-semibold opacity-75 mb-2">Ruta conectada</div>
+          <div class="fs-5">/api/inventario</div>
+          <div class="small opacity-75 mt-2">Monitoreo de rezago y benchmark de precios.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-3 mb-4" id="inventory-summary">
+    <div class="col-12">
+      <div class="glass-card p-4 loading-state">
+        <div>
+          <div class="spinner-border text-primary mb-3" role="status"></div>
+          <p class="mb-0">Cargando indicadores de inventario...</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="glass-card table-card mb-4">
+    <div class="p-4 border-bottom">
+      <div class="section-title">
+        <div>
+          <h2 class="h3 mb-1">Inventario rezagado</h2>
+          <p class="subtle mb-0">Items con más de 90 días sin movimiento.</p>
+        </div>
+        <div class="small subtle" id="inventory-date-cut">Fecha de corte: --</div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>SKU</th>
+            <th>Descripción</th>
+            <th>Días sin movimiento</th>
+            <th>Stock</th>
+            <th>Exceso</th>
+            <th>Valor inmovilizado</th>
+            <th>Nivel</th>
+          </tr>
+        </thead>
+        <tbody id="lagged-table">
+          <tr>
+            <td colspan="7">
+              <div class="loading-state">
+                <div>
+                  <div class="spinner-border text-primary mb-3" role="status"></div>
+                  <p class="mb-0">Consultando inventario rezagado...</p>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="glass-card table-card">
+    <div class="p-4 border-bottom">
+      <div class="section-title">
+        <div>
+          <h2 class="h3 mb-1">Estudio de mercado</h2>
+          <p class="subtle mb-0">Comparación entre último costo y referencia externa.</p>
+        </div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>SKU</th>
+            <th>Proveedor</th>
+            <th>Último costo</th>
+            <th>Mercado</th>
+            <th>Variación</th>
+            <th>Tendencia</th>
+            <th>Ahorro potencial</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="market-table">
+          <tr>
+            <td colspan="8">
+              <div class="loading-state">
+                <div>
+                  <div class="spinner-border text-primary mb-3" role="status"></div>
+                  <p class="mb-0">Consultando estudio de mercado...</p>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const currencyFormatter = new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      maximumFractionDigits: 2
+    });
+
+    const percentFormatter = new Intl.NumberFormat("es-MX", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+
+    function softBadgeClass(color) {
+      if (color === "danger") return "badge-soft-danger";
+      if (color === "warning") return "badge-soft-warning";
+      return "badge-soft-success";
+    }
+
+    function renderSummary(summary) {
+      const cards = [
+        {
+          label: "Items monitoreados",
+          value: summary.items_monitoreados,
+          help: "Productos bajo seguimiento del módulo"
+        },
+        {
+          label: "Inventario rezagado",
+          value: summary.inventario_rezagado,
+          help: "Items con más de 90 días sin movimiento"
+        },
+        {
+          label: "Capital inmovilizado",
+          value: currencyFormatter.format(summary.capital_inmovilizado),
+          help: "Valor comprometido en stock rezagado"
+        },
+        {
+          label: "Ahorro potencial",
+          value: currencyFormatter.format(summary.ahorro_potencial),
+          help: "Margen estimado por renegociación"
+        }
+      ];
+
+      document.getElementById("inventory-summary").innerHTML = cards.map((card) => `
+        <div class="col-12 col-md-6 col-xl-3">
+          <article class="glass-card metric-card p-4 h-100">
+            <div class="metric-label text-uppercase small fw-semibold mb-3">${card.label}</div>
+            <div class="h2 mb-2">${card.value}</div>
+            <div class="subtle small">${card.help}</div>
+          </article>
+        </div>
+      `).join("");
+    }
+
+    function renderLaggedInventory(items) {
+      const tbody = document.getElementById("lagged-table");
+
+      if (!items.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="text-center py-5 subtle">No se detectó inventario rezagado.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = items.map((item) => `
+        <tr>
+          <td class="fw-semibold">${item.sku}</td>
+          <td>
+            <div class="fw-semibold">${item.descripcion}</div>
+            <div class="small subtle">${item.categoria}</div>
+          </td>
+          <td>${item.dias_sin_movimiento}</td>
+          <td>${item.stock_actual} / min ${item.stock_minimo}</td>
+          <td>${item.exceso_unidades}</td>
+          <td>${currencyFormatter.format(item.valor_inmovilizado)}</td>
+          <td><span class="badge ${softBadgeClass(item.color)}">${item.nivel_resago}</span></td>
+        </tr>
+      `).join("");
+    }
+
+    function renderMarketStudy(items) {
+      const tbody = document.getElementById("market-table");
+
+      if (!items.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center py-5 subtle">No hay estudios de mercado disponibles.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = items.map((item) => `
+        <tr>
+          <td>
+            <div class="fw-semibold">${item.sku}</div>
+            <div class="small subtle">${item.descripcion}</div>
+          </td>
+          <td>${item.proveedor_principal}</td>
+          <td>${currencyFormatter.format(item.ultimo_costo_compra)}</td>
+          <td>${currencyFormatter.format(item.precio_referencia_mercado)}</td>
+          <td>${percentFormatter.format(item.variacion_pct)}%</td>
+          <td>${item.tendencia_mercado}</td>
+          <td>${currencyFormatter.format(item.ahorro_potencial)}</td>
+          <td><span class="badge ${softBadgeClass(item.color)}">${item.recomendacion}</span></td>
+        </tr>
+      `).join("");
+    }
+
+    function renderError() {
+      document.getElementById("inventory-summary").innerHTML = `
+        <div class="col-12">
+          <div class="glass-card error-state p-4">
+            <div>
+              <h2 class="h4 mb-2">No fue posible cargar inventario</h2>
+              <p class="subtle mb-0">Verifica que la ruta <code>/api/inventario</code> esté disponible.</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadInventoryDashboard() {
+      try {
+        const response = await fetch("/api/inventario");
+        if (!response.ok) {
+          throw new Error("Respuesta no valida del servidor");
+        }
+
+        const data = await response.json();
+        renderSummary(data.resumen);
+        renderLaggedInventory(data.inventario_rezagado);
+        renderMarketStudy(data.estudio_mercado);
+        document.getElementById("inventory-date-cut").textContent = `Fecha de corte: ${data.fecha_corte}`;
+      } catch (error) {
+        console.error(error);
+        renderError();
+      }
+    }
+
+    loadInventoryDashboard();
+  </script>
+{% endblock %}

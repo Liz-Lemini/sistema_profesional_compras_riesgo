@@ -1,0 +1,58 @@
+[
+  {
+    "id": 1,
+    "sku": "ACR-PL-01",
+    "descripcion": "Placa de acero A36 3/8",
+    "categoria": "Materia prima",
+    "stock_actual": 380,
+    "stock_minimo": 120,
+    "valor_unitario": 245.0,
+    "dias_sin_movimiento": 132,
+    "proveedor_principal": "Aceros del Bajio S.A. de C.V.",
+    "ultimo_costo_compra": 245.0,
+    "precio_referencia_mercado": 232.0,
+    "tendencia_mercado": "Alza moderada"
+  },
+  {
+    "id": 2,
+    "sku": "TOR-M12-02",
+    "descripcion": "Tornilleria estructural M12",
+    "categoria": "Consumibles",
+    "stock_actual": 1100,
+    "stock_minimo": 350,
+    "valor_unitario": 18.0,
+    "dias_sin_movimiento": 104,
+    "proveedor_principal": "Aceros del Bajio S.A. de C.V.",
+    "ultimo_costo_compra": 18.0,
+    "precio_referencia_mercado": 16.5,
+    "tendencia_mercado": "Estable"
+  },
+  {
+    "id": 3,
+    "sku": "SEN-PR-08",
+    "descripcion": "Sensor de proximidad industrial",
+    "categoria": "Refacciones",
+    "stock_actual": 95,
+    "stock_minimo": 40,
+    "valor_unitario": 1180.0,
+    "dias_sin_movimiento": 47,
+    "proveedor_principal": "Componentes Delta Industrial",
+    "ultimo_costo_compra": 1180.0,
+    "precio_referencia_mercado": 1125.0,
+    "tendencia_mercado": "Baja ligera"
+  },
+  {
+    "id": 4,
+    "sku": "MOT-AC-10",
+    "descripcion": "Motor asincrono 10 HP",
+    "categoria": "Equipos",
+    "stock_actual": 14,
+    "stock_minimo": 6,
+    "valor_unitario": 5200.0,
+    "dias_sin_movimiento": 91,
+    "proveedor_principal": "Componentes Delta Industrial",
+    "ultimo_costo_compra": 5200.0,
+    "precio_referencia_mercado": 4875.0,
+    "tendencia_mercado": "Baja moderada"
+  }
+]

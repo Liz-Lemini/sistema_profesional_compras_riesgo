@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Compras | Sistema Profesional de Compras{% endblock %}
+
+{% block content %}
+  <section class="hero p-4 p-lg-5 mb-4">
+    <div class="row g-4 align-items-center position-relative">
+      <div class="col-lg-8">
+        <p class="text-uppercase small fw-semibold mb-2">Gestión operativa</p>
+        <h1 class="display-5 mb-3">Compras y créditos por vencer</h1>
+        <p class="lead mb-0">
+          Registra nuevas compras, asigna días de crédito y monitorea cuáles siguen vigentes
+          y cuáles ya se encuentran vencidas.
+        </p>
+      </div>
+      <div class="col-lg-4">
+        <div class="glass-card p-4">
+          <div class="small text-uppercase fw-semibold opacity-75 mb-2">Ruta conectada</div>
+          <div class="fs-5">/api/compras</div>
+          <div class="small opacity-75 mt-2">Alta y visualización de cartera crediticia.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-4">
+    <div class="col-lg-4">
+      <div class="glass-card p-4">
+        <div class="section-title mb-3">
+          <div>
+            <h2 class="h3 mb-1">Nueva compra</h2>
+            <p class="subtle mb-0">La operación se guarda en JSON y actualiza el riesgo.</p>
+          </div>
+        </div>
+        <div id="purchase-status" class="status-box mb-3"></div>
+        <form id="purchase-form" class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="factura">Factura</label>
+            <input class="form-control" id="factura" name="factura" placeholder="FAC-2026-007" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="proveedor_id">Proveedor</label>
+            <select class="form-select" id="proveedor_id" name="proveedor_id" required>
+              <option value="">Cargando proveedores...</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="sku">SKU</label>
+            <input class="form-control" id="sku" name="sku" placeholder="SKU-001" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="descripcion">Descripción</label>
+            <input class="form-control" id="descripcion" name="descripcion" placeholder="Descripción del bien o servicio" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="fecha_compra">Fecha compra</label>
+            <input class="form-control" type="date" id="fecha_compra" name="fecha_compra" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="dias_credito">Días crédito</label>
+            <input class="form-control" type="number" id="dias_credito" name="dias_credito" min="1" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="monto_total">Monto total</label>
+            <input class="form-control" type="number" id="monto_total" name="monto_total" min="0.01" step="0.01" placeholder="0.00" required>
+          </div>
+          <div class="col-12 d-grid">
+            <button class="btn btn-primary btn-lg" type="submit">Guardar compra</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <section class="row g-3 mb-4" id="purchase-summary">
+        <div class="col-12">
+          <div class="glass-card p-4 loading-state">
+            <div>
+              <div class="spinner-border text-primary mb-3" role="status"></div>
+              <p class="mb-0">Cargando resumen de compras...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="glass-card table-card">
+        <div class="p-4 border-bottom">
+          <div class="section-title">
+            <div>
+              <h2 class="h3 mb-1">Cartera de créditos</h2>
+              <p class="subtle mb-0">Seguimiento a facturas vigentes y vencidas.</p>
+            </div>
+            <div class="small subtle" id="purchase-date-cut">Fecha de corte: --</div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Factura</th>
+                <th>Proveedor</th>
+                <th>Compra</th>
+                <th>Crédito</th>
+                <th>RemainingDays</th>
+                <th>Estado</th>
+                <th>Monto</th>
+              </tr>
+            </thead>
+            <tbody id="purchases-table">
+              <tr>
+                <td colspan="7">
+                  <div class="loading-state">
+                    <div>
+                      <div class="spinner-border text-primary mb-3" role="status"></div>
+                      <p class="mb-0">Consultando `/api/compras`...</p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const currencyFormatter = new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      maximumFractionDigits: 2
+    });
+
+    function softBadgeClass(level) {
+      if (level === "Vencida") return "badge-soft-danger";
+      return "badge-soft-success";
+    }
+
+    function statusClass(kind) {
+      return kind === "error" ? "alert alert-danger show" : "alert alert-success show";
+    }
+
+    function formToJson(form) {
+      const formData = new FormData(form);
+      return Object.fromEntries(formData.entries());
+    }
+
+    function showStatus(targetId, message, kind) {
+      const box = document.getElementById(targetId);
+      box.className = `status-box ${statusClass(kind)}`;
+      box.textContent = message;
+    }
+
+    function renderPurchaseSummary(summary) {
+      const cards = [
+        {
+          label: "Compras registradas",
+          value: summary.compras,
+          help: "Operaciones activas en el archivo JSON"
+        },
+        {
+          label: "Créditos vigentes",
+          value: summary.vigentes,
+          help: "Facturas dentro del plazo acordado"
+        },
+        {
+          label: "Créditos vencidos",
+          value: summary.vencidas,
+          help: "Facturas fuera del plazo de crédito"
+        },
+        {
+          label: "Monto de cartera",
+          value: currencyFormatter.format(summary.monto_total),
+          help: "Exposición total registrada"
+        }
+      ];
+
+      document.getElementById("purchase-summary").innerHTML = cards.map((card) => `
+        <div class="col-12 col-md-6">
+          <article class="glass-card metric-card p-4 h-100">
+            <div class="metric-label text-uppercase small fw-semibold mb-3">${card.label}</div>
+            <div class="h2 mb-2">${card.value}</div>
+            <div class="subtle small">${card.help}</div>
+          </article>
+        </div>
+      `).join("");
+    }
+
+    function renderPurchasesTable(purchases) {
+      const tbody = document.getElementById("purchases-table");
+      if (!purchases.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="text-center py-5 subtle">No hay compras registradas todavía.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = purchases.map((purchase) => `
+        <tr>
+          <td class="fw-semibold">${purchase.factura}</td>
+          <td>
+            <div class="fw-semibold">${purchase.proveedor}</div>
+            <div class="small subtle">${purchase.sku}</div>
+          </td>
+          <td>${purchase.fecha_compra}</td>
+          <td>${purchase.dias_credito} días</td>
+          <td>${purchase.remaining_days}</td>
+          <td><span class="badge ${softBadgeClass(purchase.estado_credito)}">${purchase.estado_credito}</span></td>
+          <td>${currencyFormatter.format(purchase.monto_total)}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function loadSuppliersSelect() {
+      const response = await fetch("/api/proveedores");
+      if (!response.ok) {
+        throw new Error("No fue posible cargar proveedores");
+      }
+
+      const data = await response.json();
+      const select = document.getElementById("proveedor_id");
+
+      if (!data.proveedores.length) {
+        select.innerHTML = '<option value="">Primero registra un proveedor</option>';
+        return;
+      }
+
+      select.innerHTML = `
+        <option value="">Selecciona un proveedor</option>
+        ${data.proveedores.map((supplier) => `
+          <option value="${supplier.id}">${supplier.nombre}</option>
+        `).join("")}
+      `;
+    }
+
+    async function loadPurchases() {
+      const response = await fetch("/api/compras");
+      if (!response.ok) {
+        throw new Error("No fue posible cargar compras");
+      }
+
+      const data = await response.json();
+      renderPurchaseSummary(data.resumen);
+      renderPurchasesTable(data.compras);
+      document.getElementById("purchase-date-cut").textContent = `Fecha de corte: ${data.fecha_corte}`;
+    }
+
+    document.getElementById("purchase-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+
+      try {
+        const response = await fetch("/api/compras", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(formToJson(form))
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "No fue posible guardar la compra");
+        }
+
+        showStatus("purchase-status", data.message, "success");
+        form.reset();
+        await loadPurchases();
+      } catch (error) {
+        showStatus("purchase-status", error.message, "error");
+      }
+    });
+
+    async function bootstrapPage() {
+      try {
+        await Promise.all([loadSuppliersSelect(), loadPurchases()]);
+      } catch (error) {
+        console.error(error);
+        showStatus("purchase-status", error.message, "error");
+      }
+    }
+
+    bootstrapPage();
+  </script>
+{% endblock %}
