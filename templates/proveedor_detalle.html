@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Proveedor | Control de Compras{% endblock %}
+
+{% block content %}
+  <div id="supplier-status" class="status-box mb-4" role="status"></div>
+  <section class="hero p-4 p-lg-5 mb-4"><p class="text-uppercase small fw-semibold mb-2">Historial del proveedor</p><h1 class="display-5 mb-2" id="supplier-title">Cargando...</h1><p class="lead mb-0" id="supplier-contact">Consulta integrada de cotizaciones, compras, entregas, incidencias y crédito.</p></section>
+  <section class="row g-3 mb-4" id="supplier-summary"></section>
+  <section class="row g-4">
+    <div class="col-lg-6"><div class="glass-card table-card"><div class="p-4 border-bottom"><h2 class="h3 mb-1">Cotizaciones</h2></div><div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Fecha</th><th>SKU</th><th>Total</th><th>Disponibilidad</th></tr></thead><tbody id="supplier-quotes"></tbody></table></div></div></div>
+    <div class="col-lg-6"><div class="glass-card table-card"><div class="p-4 border-bottom"><h2 class="h3 mb-1">Órdenes</h2></div><div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Orden</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead><tbody id="supplier-orders"></tbody></table></div></div></div>
+    <div class="col-lg-6"><div class="glass-card table-card"><div class="p-4 border-bottom"><h2 class="h3 mb-1">Incidencias</h2></div><div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Folio</th><th>Tipo</th><th>Fecha</th><th>Estado</th></tr></thead><tbody id="supplier-incidents"></tbody></table></div></div></div>
+    <div class="col-lg-6"><div class="glass-card table-card"><div class="p-4 border-bottom"><h2 class="h3 mb-1">Pagos</h2></div><div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Folio</th><th>Vencimiento</th><th>Saldo</th><th>Estado</th></tr></thead><tbody id="supplier-payments"></tbody></table></div></div></div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const supplierId = {{ supplier_id|int }};
+    const currency = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
+    function escapeHtml(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
+    function rows(target, records, renderer, columns) { document.getElementById(target).innerHTML = records.length ? records.map(renderer).join("") : `<tr><td colspan="${columns}" class="text-center py-4 subtle">Sin registros.</td></tr>`; }
+    async function load() {
+      try {
+        const response = await fetch(`/api/proveedores/${supplierId}/historial`); const data = await response.json(); if (!response.ok) throw new Error(data.error);
+        document.getElementById("supplier-title").textContent = data.proveedor.nombre;
+        document.getElementById("supplier-contact").textContent = `${data.proveedor.asesor || "Sin asesor"} · ${data.proveedor.telefono || "Sin teléfono"} · ${data.proveedor.estado}`;
+        document.getElementById("supplier-summary").innerHTML = [["Cotizaciones", data.resumen.cotizaciones], ["Órdenes", data.resumen.ordenes], ["Incidencias", data.resumen.incidencias], ["Monto comprado", currency.format(data.resumen.monto_compras)]].map(([label, value]) => `<div class="col-6 col-xl-3"><article class="glass-card metric-card p-4 h-100"><div class="metric-label text-uppercase small fw-semibold mb-3">${label}</div><div class="h4 mb-0">${escapeHtml(value)}</div></article></div>`).join("");
+        rows("supplier-quotes", data.cotizaciones, (item) => `<tr><td>${escapeHtml(item.fecha)}</td><td>${escapeHtml(item.sku)}</td><td>${currency.format(item.costo_total)}</td><td>${escapeHtml(item.disponibilidad || "N/D")}</td></tr>`, 4);
+        rows("supplier-orders", data.ordenes, (item) => `<tr><td>${escapeHtml(item.numero_orden)}</td><td>${escapeHtml(item.fecha_orden)}</td><td>${currency.format(item.total)}</td><td>${escapeHtml(item.estado)}</td></tr>`, 4);
+        rows("supplier-incidents", data.incidencias, (item) => `<tr><td>${escapeHtml(item.folio)}</td><td>${escapeHtml(item.tipo)}</td><td>${escapeHtml(item.fecha)}</td><td>${escapeHtml(item.estado)}</td></tr>`, 4);
+        rows("supplier-payments", data.pagos, (item) => `<tr><td>${escapeHtml(item.folio)}</td><td>${escapeHtml(item.fecha_vencimiento)}</td><td>${currency.format(item.saldo)}</td><td>${escapeHtml(item.estado)}</td></tr>`, 4);
+      } catch (error) { const status = document.getElementById("supplier-status"); status.className = "status-box alert alert-danger show"; status.textContent = error.message; }
+    }
+    load();
+  </script>
+{% endblock %}

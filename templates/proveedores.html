@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}Proveedores | Control de Compras{% endblock %}
+
+{% block content %}
+  <section class="hero p-4 p-lg-5 mb-4">
+    <div class="row g-4 align-items-center position-relative">
+      <div class="col-12">
+        <p class="text-uppercase small fw-semibold mb-2">Catálogo de proveedores</p>
+        <h1 class="display-5 mb-3">Proveedores</h1>
+        <p class="lead mb-0">
+          Mantén los datos de contacto y crédito organizados para facilitar las compras y su seguimiento.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-4">
+    <div class="col-lg-4">
+      <div class="glass-card p-4">
+        <div class="section-title mb-3">
+          <div>
+            <h2 class="h3 mb-1" id="supplier-form-title">Nuevo proveedor</h2>
+            <p class="subtle mb-0">Completa la información necesaria para operar.</p>
+          </div>
+        </div>
+        <div id="supplier-status" class="status-box mb-3" role="status"></div>
+        <form id="supplier-form" class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="nombre">Nombre del proveedor</label>
+            <input class="form-control" id="nombre" name="nombre" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="asesor">Asesor o contacto</label>
+            <input class="form-control" id="asesor" name="asesor" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="telefono">Teléfono</label>
+            <input class="form-control" id="telefono" name="telefono" inputmode="tel" minlength="10" maxlength="15" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="dias_credito">Días de crédito</label>
+            <input class="form-control" type="number" id="dias_credito" name="dias_credito" min="0" step="1" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="correo">Correo</label>
+            <input class="form-control" type="email" id="correo" name="correo">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="sector">Sector o categoría</label>
+            <input class="form-control" id="sector" name="sector">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="notas">Notas</label>
+            <textarea class="form-control" id="notas" name="notas" rows="3"></textarea>
+          </div>
+          <div class="col-12 d-flex gap-2">
+            <button class="btn btn-primary btn-lg flex-grow-1" type="submit" id="supplier-submit">Guardar proveedor</button>
+            <button class="btn btn-outline-secondary d-none" type="button" id="supplier-cancel">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <section class="row g-3 mb-4" id="supplier-summary">
+        <div class="col-12">
+          <div class="glass-card p-4 loading-state">
+            <div>
+              <div class="spinner-border text-primary mb-3" role="status"></div>
+              <p class="mb-0">Cargando proveedores...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="glass-card table-card">
+        <div class="p-4 border-bottom">
+          <div class="section-title">
+            <div>
+              <h2 class="h3 mb-1">Catálogo</h2>
+              <p class="subtle mb-0">Busca por nombre, asesor, correo o teléfono.</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <input class="form-control" id="supplier-search" placeholder="Buscar..." aria-label="Buscar proveedor">
+              <select class="form-select" id="supplier-state" aria-label="Filtrar por estado">
+                <option value="">Todos</option>
+                <option value="Activo">Activos</option>
+                <option value="Inactivo">Inactivos</option>
+                <option value="Pendiente">Pendientes</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Proveedor</th>
+                <th>Contacto</th>
+                <th>Crédito</th>
+                <th>Estado</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="suppliers-table">
+              <tr><td colspan="5" class="text-center py-5 subtle">Cargando proveedores...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    let editingSupplierId = null;
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function statusClass(kind) {
+      return kind === "error" ? "alert alert-danger show" : "alert alert-success show";
+    }
+
+    function showStatus(message, kind) {
+      const box = document.getElementById("supplier-status");
+      box.className = `status-box ${statusClass(kind)}`;
+      box.textContent = message;
+    }
+
+    function supplierStateClass(state) {
+      if (state === "Activo") return "badge-soft-success";
+      if (state === "Inactivo") return "badge-soft-danger";
+      return "badge-soft-warning";
+    }
+
+    function renderSummary(suppliers) {
+      const active = suppliers.filter((supplier) => supplier.estado === "Activo").length;
+      const incomplete = suppliers.filter((supplier) => !supplier.asesor || !supplier.telefono || supplier.dias_credito === null).length;
+      document.getElementById("supplier-summary").innerHTML = `
+        <div class="col-12 col-md-4">
+          <article class="glass-card metric-card p-4 h-100">
+            <div class="metric-label text-uppercase small fw-semibold mb-3">Resultados</div>
+            <div class="h2 mb-2">${suppliers.length}</div>
+            <div class="subtle small">Proveedores mostrados</div>
+          </article>
+        </div>
+        <div class="col-12 col-md-4">
+          <article class="glass-card metric-card p-4 h-100">
+            <div class="metric-label text-uppercase small fw-semibold mb-3">Activos</div>
+            <div class="h2 mb-2">${active}</div>
+            <div class="subtle small">Disponibles para nuevas compras</div>
+          </article>
+        </div>
+        <div class="col-12 col-md-4">
+          <article class="glass-card metric-card p-4 h-100">
+            <div class="metric-label text-uppercase small fw-semibold mb-3">Pendientes</div>
+            <div class="h2 mb-2">${incomplete}</div>
+            <div class="subtle small">Registros que requieren completar datos</div>
+          </article>
+        </div>
+      `;
+    }
+
+    function renderSuppliersTable(suppliers) {
+      const tbody = document.getElementById("suppliers-table");
+      if (!suppliers.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 subtle">No hay proveedores para mostrar.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = suppliers.map((supplier) => {
+        const nextState = supplier.estado === "Activo" ? "Inactivo" : "Activo";
+        const actionLabel = nextState === "Activo" ? "Activar" : "Desactivar";
+        const credit = supplier.dias_credito === null || supplier.dias_credito === undefined ? "Pendiente" : `${supplier.dias_credito} días`;
+        return `
+          <tr>
+            <td>
+              <div class="fw-semibold"><a href="/proveedores/${supplier.id}">${escapeHtml(supplier.nombre)}</a></div>
+              <div class="small subtle">${escapeHtml(supplier.sector || "Sin categoría")}</div>
+            </td>
+            <td>
+              <div>${escapeHtml(supplier.asesor || "Sin asesor")}</div>
+              <div class="small subtle">${escapeHtml(supplier.correo || supplier.telefono || "Sin contacto")}</div>
+            </td>
+            <td>${escapeHtml(credit)}</td>
+            <td><span class="badge ${supplierStateClass(supplier.estado)}">${escapeHtml(supplier.estado)}</span></td>
+            <td class="text-end text-nowrap">
+              <button class="btn btn-sm btn-outline-primary me-1" type="button" data-edit="${supplier.id}">Editar</button>
+              <button class="btn btn-sm btn-outline-secondary" type="button" data-state="${supplier.id}" data-next-state="${nextState}">${actionLabel}</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function fillForm(supplier) {
+      document.getElementById("nombre").value = supplier.nombre || "";
+      document.getElementById("asesor").value = supplier.asesor || "";
+      document.getElementById("telefono").value = supplier.telefono || "";
+      document.getElementById("correo").value = supplier.correo || "";
+      document.getElementById("dias_credito").value = supplier.dias_credito ?? "";
+      document.getElementById("sector").value = supplier.sector || "";
+      document.getElementById("notas").value = supplier.notas || "";
+      document.getElementById("supplier-form-title").textContent = "Editar proveedor";
+      document.getElementById("supplier-submit").textContent = "Actualizar proveedor";
+      document.getElementById("supplier-cancel").classList.remove("d-none");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function resetForm() {
+      editingSupplierId = null;
+      document.getElementById("supplier-form").reset();
+      document.getElementById("supplier-form-title").textContent = "Nuevo proveedor";
+      document.getElementById("supplier-submit").textContent = "Guardar proveedor";
+      document.getElementById("supplier-cancel").classList.add("d-none");
+    }
+
+    async function loadSuppliers() {
+      const params = new URLSearchParams({
+        q: document.getElementById("supplier-search").value,
+        estado: document.getElementById("supplier-state").value
+      });
+      const response = await fetch(`/api/proveedores?${params}`);
+      if (!response.ok) throw new Error("No fue posible cargar proveedores");
+      const data = await response.json();
+      renderSummary(data.proveedores);
+      renderSuppliersTable(data.proveedores);
+    }
+
+    async function saveSupplier(event) {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      const payload = Object.fromEntries(formData.entries());
+      const url = editingSupplierId ? `/api/proveedores/${editingSupplierId}` : "/api/proveedores";
+      const method = editingSupplierId ? "PUT" : "POST";
+
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "No fue posible guardar el proveedor");
+        showStatus(data.message, "success");
+        resetForm();
+        await loadSuppliers();
+      } catch (error) {
+        showStatus(error.message, "error");
+      }
+    }
+
+    document.getElementById("supplier-form").addEventListener("submit", saveSupplier);
+    document.getElementById("supplier-cancel").addEventListener("click", resetForm);
+    document.getElementById("supplier-search").addEventListener("input", () => loadSuppliers().catch((error) => showStatus(error.message, "error")));
+    document.getElementById("supplier-state").addEventListener("change", () => loadSuppliers().catch((error) => showStatus(error.message, "error")));
+    document.getElementById("suppliers-table").addEventListener("click", async (event) => {
+      const editButton = event.target.closest("[data-edit]");
+      const stateButton = event.target.closest("[data-state]");
+
+      if (editButton) {
+        const response = await fetch("/api/proveedores");
+        const data = await response.json();
+        const supplier = data.proveedores.find((item) => String(item.id) === editButton.dataset.edit);
+        if (supplier) {
+          editingSupplierId = supplier.id;
+          fillForm(supplier);
+        }
+      }
+
+      if (stateButton) {
+        try {
+          const response = await fetch(`/api/proveedores/${stateButton.dataset.state}/estado`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ estado: stateButton.dataset.nextState })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "No fue posible actualizar el estado");
+          showStatus(data.message, "success");
+          await loadSuppliers();
+        } catch (error) {
+          showStatus(error.message, "error");
+        }
+      }
+    });
+
+    loadSuppliers().catch((error) => showStatus(error.message, "error"));
+  </script>
+{% endblock %}

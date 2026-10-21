@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Resumen | Control de Compras{% endblock %}
+
+{% block content %}
+  <section class="hero p-4 p-lg-5 mb-4 mb-lg-5">
+    <div class="row g-4 align-items-center position-relative">
+      <div class="col-lg-7">
+        <p class="text-uppercase small fw-semibold mb-2">Resumen operativo</p>
+        <h1 class="display-5 mb-3">Compras y seguimiento</h1>
+        <p class="lead mb-0">
+          Consulta la exposición de compras y prioriza los vencimientos con información verificable.
+        </p>
+      </div>
+      <div class="col-lg-5">
+        <div id="lead-risk-card" class="glass-card p-4 h-100">
+          <div class="loading-state">
+            <div>
+              <div class="spinner-border text-light mb-3" role="status"></div>
+              <p class="mb-0">Cargando mayor vencimiento...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="glass-card table-card mb-4" id="attention-section">
+    <div class="p-4 border-bottom">
+      <div class="section-title">
+        <div>
+          <h2 class="h3 mb-1">Qué requiere atención</h2>
+          <p class="subtle mb-0">Alertas derivadas de procesos, incidencias, inventario y obligaciones registradas.</p>
+        </div>
+      </div>
+    </div>
+    <div class="p-4" id="attention-content">
+      <p class="subtle mb-0">Cargando alertas...</p>
+    </div>
+  </section>
+
+  <section class="row g-3 mb-4" id="summary-cards">
+    <div class="col-12">
+      <div class="glass-card p-4 loading-state">
+        <div>
+          <div class="spinner-border text-primary mb-3" role="status"></div>
+          <p class="mb-0">Preparando indicadores...</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="glass-card table-card">
+    <div class="p-4 border-bottom">
+      <div class="section-title">
+        <div>
+          <h2 class="h3 mb-1">Seguimiento por proveedor</h2>
+          <p class="subtle mb-0">Los registros se ordenan por monto vencido y días de atraso.</p>
+        </div>
+        <div class="small subtle" id="fecha-corte">Fecha de corte: --</div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Proveedor</th>
+            <th>Atención</th>
+            <th>Atraso promedio</th>
+            <th>Facturas vencidas</th>
+            <th>Monto vencido</th>
+            <th>Monto total</th>
+          </tr>
+        </thead>
+        <tbody id="providers-table">
+          <tr>
+            <td colspan="6">
+              <div class="loading-state">
+                <div>
+                  <div class="spinner-border text-primary mb-3" role="status"></div>
+                  <p class="mb-0">Cargando proveedores...</p>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="glass-card table-card mt-4" id="qa-section">
+    <div class="p-4 border-bottom">
+      <div class="section-title">
+        <div>
+          <h2 class="h3 mb-1">Calidad de datos</h2>
+          <p class="subtle mb-0">Revisión automática de consistencia antes de operar.</p>
+        </div>
+        <div class="small subtle" id="qa-date">Última revisión: --</div>
+      </div>
+    </div>
+    <div class="p-4" id="qa-content">
+      <div class="loading-state"><div><div class="spinner-border text-primary mb-3" role="status"></div><p class="mb-0">Revisando información...</p></div></div>
+    </div>
+  </section>
+
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const currencyFormatter = new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      maximumFractionDigits: 2
+    });
+
+    const numberFormatter = new Intl.NumberFormat("es-MX", {
+      maximumFractionDigits: 2
+    });
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function attentionBadge(level) {
+      return level === "Requiere atención" ? "badge-soft-danger" : "badge-soft-success";
+    }
+
+    function renderSummary(summary) {
+      const cards = [
+        { label: "Proveedores", value: summary.proveedores, help: "Proveedores registrados" },
+        { label: "Compras", value: summary.compras, help: "Registros de compra" },
+        { label: "Monto total", value: currencyFormatter.format(summary.monto_total), help: "Monto registrado" },
+        { label: "Monto vencido", value: currencyFormatter.format(summary.monto_vencido), help: `${summary.compras_vencidas} compra(s) vencida(s)` },
+        { label: "Procesos abiertos", value: summary.procesos_abiertos ?? "N/D", help: "Expedientes sin cierre" },
+        { label: "Alertas", value: summary.alertas ?? "N/D", help: "Reglas que requieren revisión" }
+      ];
+
+      document.getElementById("summary-cards").innerHTML = cards.map((card) => `
+        <div class="col-12 col-md-6 col-xl-3">
+          <article class="glass-card metric-card p-4 h-100">
+            <div class="metric-label text-uppercase small fw-semibold mb-3">${card.label}</div>
+            <div class="h2 mb-2">${card.value}</div>
+            <div class="subtle small">${card.help}</div>
+          </article>
+        </div>
+      `).join("");
+    }
+
+    function renderLeadProvider(provider) {
+      const metrics = provider.metricas;
+      document.getElementById("lead-risk-card").innerHTML = `
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+          <div>
+            <div class="text-uppercase small fw-semibold opacity-75 mb-2">Mayor monto vencido</div>
+            <h2 class="h3 mb-1">${escapeHtml(provider.proveedor)}</h2>
+            <p class="mb-0 opacity-75">${escapeHtml(provider.sector)}</p>
+          </div>
+          <span class="badge ${attentionBadge(provider.nivel_atencion)} attention-chip">${escapeHtml(provider.nivel_atencion)}</span>
+        </div>
+        <div class="metric-value mb-2">${currencyFormatter.format(metrics.monto_vencido)}</div>
+        <div class="small opacity-75 mb-3">Monto vencido registrado</div>
+        <div class="row g-3">
+          <div class="col-4"><div class="small opacity-75">Atraso promedio</div><div class="fs-5 fw-semibold">${numberFormatter.format(metrics.atraso_promedio_dias)} días</div></div>
+          <div class="col-4"><div class="small opacity-75">Máximo atraso</div><div class="fs-5 fw-semibold">${metrics.dias_maximo_atraso} días</div></div>
+          <div class="col-4"><div class="small opacity-75">Vencidas</div><div class="fs-5 fw-semibold">${metrics.facturas_vencidas} / ${metrics.total_facturas}</div></div>
+        </div>
+      `;
+    }
+
+    function renderTable(providers) {
+      const tbody = document.getElementById("providers-table");
+      if (!providers.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5 subtle">No hay proveedores para mostrar.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = providers.map((provider) => {
+        const metrics = provider.metricas;
+        return `
+          <tr>
+            <td><div class="fw-semibold">${escapeHtml(provider.proveedor)}</div><div class="small subtle">${escapeHtml(provider.contacto)}</div></td>
+            <td><span class="badge ${attentionBadge(provider.nivel_atencion)}">${escapeHtml(provider.nivel_atencion)}</span></td>
+            <td>${numberFormatter.format(metrics.atraso_promedio_dias)} días</td>
+            <td>${metrics.facturas_vencidas} / ${metrics.total_facturas}</td>
+            <td>${currencyFormatter.format(metrics.monto_vencido)}</td>
+            <td>${currencyFormatter.format(metrics.monto_total_compras)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderError() {
+      document.getElementById("summary-cards").innerHTML = `
+        <div class="col-12"><div class="glass-card error-state p-4"><div><h2 class="h4 mb-2">No fue posible cargar el resumen</h2><p class="subtle mb-0">No fue posible recuperar la información. Intenta nuevamente.</p></div></div></div>
+      `;
+      document.getElementById("lead-risk-card").innerHTML = '<div class="error-state"><div><h2 class="h4 mb-2">Sin información disponible</h2><p class="mb-0 opacity-75">No se pudo recuperar el proveedor con mayor vencimiento.</p></div></div>';
+      document.getElementById("providers-table").innerHTML = '<tr><td colspan="6" class="text-center py-5">Error al consultar el servicio.</td></tr>';
+    }
+
+    function renderQa(report) {
+      const statusClass = report.estado === "Aprobado" ? "badge-soft-success" : "badge-soft-warning";
+      const summary = report.resumen;
+      document.getElementById("qa-date").textContent = `Última revisión: ${report.fecha_revision}`;
+      document.getElementById("qa-content").innerHTML = `
+        <div class="d-flex flex-wrap align-items-center gap-3 mb-3"><span class="badge ${statusClass} fs-6 px-3 py-2">${report.estado}</span><span class="subtle">${summary.aprobadas} de ${summary.validaciones} validaciones aprobadas</span></div>
+        <div class="row g-3">${report.validaciones.map((check) => `
+          <div class="col-12 col-lg-6"><div class="qa-check d-flex justify-content-between gap-3 align-items-start"><div><div class="fw-semibold">${escapeHtml(check.nombre)}</div><div class="small subtle">${escapeHtml(check.detalle)}</div>${(check.referencias_afectadas || []).length ? `<div class="small text-danger mt-2"><strong>Registros:</strong> ${(check.referencias_afectadas || []).slice(0, 6).map((record) => escapeHtml(record.referencia)).join(", ")}</div>` : ""}</div><span class="badge ${check.estado === "Aprobado" ? "badge-soft-success" : "badge-soft-warning"}">${escapeHtml(check.estado)}</span></div></div>
+        `).join("")}</div>
+      `;
+    }
+
+    function renderAttention(processIndicators) {
+      const alerts = processIndicators.alertas || [];
+      const content = document.getElementById("attention-content");
+      if (!alerts.length) {
+        content.innerHTML = '<div class="alert alert-success mb-0">No hay alertas de procesos, incidencias o pagos con la información registrada.</div>';
+        return;
+      }
+      const destination = (alert) => {
+        if (alert.proceso_id) return `/procesos/${alert.proceso_id}`;
+        if (alert.proveedor_id) return `/proveedores/${alert.proveedor_id}`;
+        if (alert.tipo === "inventario_bajo") return "/inventario";
+        if (alert.tipo === "orden_retrasada") return "/compras";
+        return "";
+      };
+      content.innerHTML = `<div class="row g-3">${alerts.map((alert) => `
+        <div class="col-12 col-lg-6">
+          <div class="qa-check d-flex justify-content-between gap-3 align-items-start">
+            <div><div class="fw-semibold">${escapeHtml(alert.mensaje)}</div><div class="small subtle">${escapeHtml(alert.tipo)}${alert.folio ? ` · ${escapeHtml(alert.folio)}` : ""}</div></div>
+            ${destination(alert) ? `<a class="btn btn-sm btn-outline-primary" href="${destination(alert)}">Abrir</a>` : ""}
+          </div>
+        </div>
+      `).join("")}</div>`;
+    }
+
+    async function loadDashboard() {
+      try {
+        const response = await fetch("/api/dashboard");
+        if (!response.ok) throw new Error("Respuesta no válida del servidor");
+        const data = await response.json();
+        renderSummary(data.resumen);
+        renderTable(data.proveedores);
+        renderAttention(data.procesos || { alertas: [] });
+        document.getElementById("fecha-corte").textContent = `Fecha de corte: ${data.fecha_corte}`;
+        if (data.proveedores.length) renderLeadProvider(data.proveedores[0]);
+      } catch (error) {
+        console.error(error);
+        renderError();
+      }
+    }
+
+    async function loadQa() {
+      const response = await fetch("/api/qa");
+      if (!response.ok) throw new Error("No fue posible revisar la calidad de los datos");
+      renderQa(await response.json());
+    }
+
+    Promise.all([loadDashboard(), loadQa()]).catch((error) => console.error(error));
+  </script>
+{% endblock %}

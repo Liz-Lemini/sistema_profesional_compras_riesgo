@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Búsqueda | Control de Compras{% endblock %}
+
+{% block content %}
+  <section class="hero p-4 p-lg-5 mb-4">
+    <p class="text-uppercase small fw-semibold mb-2">Consulta transversal</p>
+    <h1 class="display-5 mb-2">Búsqueda global</h1>
+    <p class="lead mb-0">Localiza procesos, órdenes, proveedores y productos sin recorrer varias pantallas.</p>
+  </section>
+
+  <form class="row g-2 mb-4" action="/buscar" method="get">
+    <div class="col"><label class="visually-hidden" for="search-query">Consulta</label><input class="form-control" id="search-query" name="q" value="{{ query }}" minlength="2" placeholder="Folio, proveedor, orden, SKU o descripción" required></div>
+    <div class="col-auto"><button class="btn btn-primary h-100" type="submit">Buscar</button></div>
+  </form>
+  <div id="search-status" class="status-box mb-4" role="status"></div>
+  <div id="search-results" class="row g-4"><div class="col-12"><div class="glass-card p-4 subtle">Escribe una consulta para comenzar.</div></div></div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const query = {{ query|tojson }};
+    function escapeHtml(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
+    function section(title, records, renderer) {
+      return `<div class="col-12 col-xl-6"><div class="glass-card table-card h-100"><div class="p-4 border-bottom"><h2 class="h3 mb-0">${title} <span class="small subtle">(${records.length})</span></h2></div><div class="list-group list-group-flush">${records.length ? records.slice(0, 8).map(renderer).join("") : `<div class="p-4 subtle">Sin coincidencias.</div>`}</div></div></div>`;
+    }
+    async function search() {
+      if (query.length < 2) return;
+      try {
+        const response = await fetch(`/api/busqueda?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "No fue posible buscar.");
+        document.getElementById("search-results").innerHTML = [
+          section("Procesos", data.procesos, (item) => `<a class="list-group-item list-group-item-action" href="/procesos/${item.id}"><strong>${escapeHtml(item.folio)}</strong><div>${escapeHtml(item.necesidad)}</div><small class="subtle">${escapeHtml(item.estado)}</small></a>`),
+          section("Proveedores", data.proveedores, (item) => `<a class="list-group-item list-group-item-action" href="/proveedores"><strong>${escapeHtml(item.nombre)}</strong><div>${escapeHtml(item.asesor)}</div><small class="subtle">${escapeHtml(item.estado)}</small></a>`),
+          section("Órdenes", data.ordenes, (item) => `<a class="list-group-item list-group-item-action" href="/compras"><strong>${escapeHtml(item.numero_orden)}</strong><div>${escapeHtml(item.proveedor)} · ${escapeHtml(item.descripcion)}</div><small class="subtle">${escapeHtml(item.estado)}</small></a>`),
+          section("Inventario", data.inventario, (item) => `<a class="list-group-item list-group-item-action" href="/inventario"><strong>${escapeHtml(item.sku)}</strong><div>${escapeHtml(item.descripcion)}</div><small class="subtle">Existencia: ${item.stock_actual}</small></a>`)
+        ].join("");
+      } catch (error) {
+        const status = document.getElementById("search-status");
+        status.className = "status-box alert alert-danger show";
+        status.textContent = error.message;
+      }
+    }
+    search();
+  </script>
+{% endblock %}

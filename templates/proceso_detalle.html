@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}Expediente de compra | Control de Compras{% endblock %}
+
+{% block content %}
+  <section class="hero p-4 p-lg-5 mb-4">
+    <div class="row g-4 align-items-center position-relative">
+      <div class="col-lg-8">
+        <p class="text-uppercase small fw-semibold mb-2">Expediente integrado</p>
+        <h1 class="display-5 mb-2" id="process-title">Cargando proceso...</h1>
+        <p class="lead mb-0" id="process-description">Necesidad, cotizaciones, decisión y orden en un mismo historial.</p>
+      </div>
+      <div class="col-lg-4 text-lg-end">
+        <span id="process-state-badge" class="badge badge-soft-warning fs-6">Cargando...</span>
+      </div>
+    </div>
+  </section>
+
+  <div id="detail-status" class="status-box mb-4" role="status"></div>
+
+  <section class="row g-3 mb-4" id="process-summary"></section>
+
+  <section class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="glass-card p-4 h-100">
+        <div class="section-title mb-3">
+          <div>
+            <h2 class="h3 mb-1">Agregar cotización</h2>
+            <p class="subtle mb-0">Los importes quedan estructurados para comparación.</p>
+          </div>
+        </div>
+        <form id="quote-form" class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="quote-provider">Proveedor</label>
+            <select class="form-select" id="quote-provider" required><option value="">Cargando proveedores...</option></select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="quote-sku">SKU</label>
+            <input class="form-control" id="quote-sku" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="quote-quantity">Cantidad</label>
+            <input class="form-control" type="number" id="quote-quantity" min="1" step="1" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="quote-description">Descripción</label>
+            <input class="form-control" id="quote-description" required>
+          </div>
+          <div class="col-4">
+            <label class="form-label" for="quote-unit-price">Precio unitario</label>
+            <input class="form-control" type="number" id="quote-unit-price" min="0.01" step="0.01" required>
+          </div>
+          <div class="col-4">
+            <label class="form-label" for="quote-shipping">Envío</label>
+            <input class="form-control" type="number" id="quote-shipping" min="0" step="0.01" value="0">
+          </div>
+          <div class="col-4">
+            <label class="form-label" for="quote-taxes">Impuestos</label>
+            <input class="form-control" type="number" id="quote-taxes" min="0" step="0.01" value="0">
+          </div>
+          <div class="col-4">
+            <label class="form-label" for="quote-credit">Días de crédito</label>
+            <input class="form-control" type="number" id="quote-credit" min="0" step="1" required>
+          </div>
+          <div class="col-4">
+            <label class="form-label" for="quote-delivery">Entrega (días)</label>
+            <input class="form-control" type="number" id="quote-delivery" min="0" step="1" value="0">
+          </div>
+          <div class="col-4">
+            <label class="form-label" for="quote-availability">Disponibilidad</label>
+            <select class="form-select" id="quote-availability">
+              <option value="">No especificada</option>
+              <option>Disponible</option>
+              <option>Parcial</option>
+              <option>No disponible</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="quote-date">Fecha</label>
+            <input class="form-control" type="date" id="quote-date" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="quote-validity">Vigencia</label>
+            <input class="form-control" type="date" id="quote-validity">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="quote-notes">Observaciones</label>
+            <textarea class="form-control" id="quote-notes" rows="2"></textarea>
+          </div>
+          <div class="col-12 d-grid"><button class="btn btn-primary" type="submit">Guardar cotización</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="glass-card table-card h-100">
+        <div class="p-4 border-bottom">
+          <h2 class="h3 mb-1">Comparar cotizaciones</h2>
+          <p class="subtle mb-0">Los destacados son referencias transparentes; la decisión es del usuario.</p>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light"><tr><th>Proveedor</th><th>Total</th><th>Crédito</th><th>Entrega</th><th></th></tr></thead>
+            <tbody id="quotes-table"><tr><td colspan="5" class="text-center py-5 subtle">Cargando cotizaciones...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="p-4 border-top" id="quote-highlights"></div>
+        <div class="p-4 border-top">
+          <label class="form-label" for="selection-justification">Justificación de selección</label>
+          <textarea class="form-control mb-2" id="selection-justification" rows="2" placeholder="Explica el criterio de decisión"></textarea>
+          <button class="btn btn-outline-primary" type="button" id="select-quote" disabled>Seleccionar cotización marcada</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="glass-card p-4 h-100">
+        <h2 class="h3 mb-1">Registrar negociación</h2>
+        <p class="subtle mb-3">Captura precio, crédito y plazo final cuando existan.</p>
+        <form id="negotiation-form" class="row g-3">
+          <div class="col-4"><label class="form-label" for="negotiated-price">Precio final</label><input class="form-control" type="number" id="negotiated-price" min="0.01" step="0.01" required></div>
+          <div class="col-4"><label class="form-label" for="negotiated-credit">Crédito final</label><input class="form-control" type="number" id="negotiated-credit" min="0" step="1"></div>
+          <div class="col-4"><label class="form-label" for="negotiated-delivery">Entrega final</label><input class="form-control" type="number" id="negotiated-delivery" min="0" step="1"></div>
+          <div class="col-12"><label class="form-label" for="negotiation-conditions">Condiciones adicionales</label><textarea class="form-control" id="negotiation-conditions" rows="2"></textarea></div>
+          <div class="col-12"><label class="form-label" for="negotiation-notes">Observaciones</label><textarea class="form-control" id="negotiation-notes" rows="2"></textarea></div>
+          <div class="col-12 d-grid"><button class="btn btn-outline-primary" type="submit">Guardar negociación</button></div>
+        </form>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="glass-card p-4 h-100">
+        <h2 class="h3 mb-1">Continuar expediente</h2>
+        <p class="subtle mb-3">La orden reutiliza la cotización seleccionada y la negociación más reciente.</p>
+        <button class="btn btn-primary" type="button" id="generate-order" disabled>Generar orden de compra</button>
+        <div id="orders-summary" class="mt-4"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="glass-card p-4 h-100">
+        <h2 class="h3 mb-1">Seguimiento del pedido</h2>
+        <p class="subtle mb-3">Registra confirmaciones, tránsito y fechas reales.</p>
+        <form id="followup-form" class="row g-3">
+          <div class="col-6"><label class="form-label" for="followup-type">Tipo</label><select class="form-select" id="followup-type"><option value="confirmacion">Confirmación</option><option value="en_transito">En tránsito</option><option value="actualizacion">Actualización</option><option value="recepcion">Recepción</option><option value="otro">Otro</option></select></div>
+          <div class="col-6"><label class="form-label" for="followup-order">Orden</label><input class="form-control" id="followup-order" type="number" min="1"></div>
+          <div class="col-6"><label class="form-label" for="followup-estimated">Fecha estimada</label><input class="form-control" id="followup-estimated" type="date"></div>
+          <div class="col-6"><label class="form-label" for="followup-actual">Fecha real</label><input class="form-control" id="followup-actual" type="date"></div>
+          <div class="col-12"><label class="form-label" for="followup-comment">Comentario</label><textarea class="form-control" id="followup-comment" rows="2" required></textarea></div>
+          <div class="col-12 d-grid"><button class="btn btn-outline-primary" type="submit">Guardar seguimiento</button></div>
+        </form>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="glass-card p-4 h-100">
+        <h2 class="h3 mb-1">Registrar incidencia</h2>
+        <p class="subtle mb-3">Conserva el problema y su relación con el expediente.</p>
+        <form id="incident-form" class="row g-3">
+          <div class="col-6"><label class="form-label" for="incident-type">Tipo</label><select class="form-select" id="incident-type"><option value="retraso">Retraso</option><option value="producto_danado">Producto dañado</option><option value="cantidad_incorrecta">Cantidad incorrecta</option><option value="producto_incorrecto">Producto incorrecto</option><option value="diferencia_precio">Diferencia de precio</option><option value="faltante">Faltante</option><option value="documentacion">Documentación</option><option value="otro">Otro</option></select></div>
+          <div class="col-6"><label class="form-label" for="incident-order">Orden</label><input class="form-control" id="incident-order" type="number" min="1"></div>
+          <div class="col-6"><label class="form-label" for="incident-sku">SKU</label><input class="form-control" id="incident-sku"></div>
+          <div class="col-6"><label class="form-label" for="incident-date">Fecha</label><input class="form-control" id="incident-date" type="date" required></div>
+          <div class="col-12"><label class="form-label" for="incident-description">Descripción</label><textarea class="form-control" id="incident-description" rows="2" required></textarea></div>
+          <div class="col-12 d-grid"><button class="btn btn-outline-danger" type="submit">Guardar incidencia</button></div>
+        </form>
+        <div id="incidents-history" class="small mt-4"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-4 mb-4">
+    <div class="col-lg-6">
+      <div class="glass-card p-4 h-100">
+        <h2 class="h3 mb-1">Registrar recepción</h2>
+        <p class="subtle mb-3">Las unidades aceptadas generan automáticamente una entrada de inventario.</p>
+        <form id="reception-form" class="row g-3">
+          <div class="col-6"><label class="form-label" for="reception-order">Orden</label><input class="form-control" id="reception-order" type="number" min="1" required></div>
+          <div class="col-6"><label class="form-label" for="reception-date">Fecha</label><input class="form-control" id="reception-date" type="date" required></div>
+          <div class="col-4"><label class="form-label" for="reception-sku">SKU</label><input class="form-control" id="reception-sku" required></div>
+          <div class="col-4"><label class="form-label" for="reception-received">Recibidas</label><input class="form-control" id="reception-received" type="number" min="0" step="1" required></div>
+          <div class="col-4"><label class="form-label" for="reception-accepted">Aceptadas</label><input class="form-control" id="reception-accepted" type="number" min="0" step="1" required></div>
+          <div class="col-6"><label class="form-label" for="reception-rejected">Rechazadas</label><input class="form-control" id="reception-rejected" type="number" min="0" step="1" value="0" required></div>
+          <div class="col-6"><label class="form-label" for="reception-notes">Observaciones</label><input class="form-control" id="reception-notes"></div>
+          <div class="col-12 d-grid"><button class="btn btn-outline-success" type="submit">Guardar recepción</button></div>
+        </form>
+        <div id="receipts-history" class="small mt-4"></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="glass-card p-4 h-100">
+        <h2 class="h3 mb-1">Pagos operativos</h2>
+        <p class="subtle mb-3">Registra una obligación y aplica pagos sin superar el saldo.</p>
+        <form id="payment-form" class="row g-3">
+          <div class="col-6"><label class="form-label" for="payment-order">Orden</label><input class="form-control" id="payment-order" type="number" min="1" required></div>
+          <div class="col-6"><label class="form-label" for="payment-invoice">Factura</label><input class="form-control" id="payment-invoice"></div>
+          <div class="col-4"><label class="form-label" for="payment-date">Fecha factura</label><input class="form-control" id="payment-date" type="date" required></div>
+          <div class="col-4"><label class="form-label" for="payment-credit">Crédito (días)</label><input class="form-control" id="payment-credit" type="number" min="0" step="1"></div>
+          <div class="col-4"><label class="form-label" for="payment-amount">Monto</label><input class="form-control" id="payment-amount" type="number" min="0.01" step="0.01" required></div>
+          <div class="col-12 d-grid"><button class="btn btn-outline-primary" type="submit">Registrar obligación</button></div>
+        </form>
+        <div id="payments-history" class="small mt-4"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="glass-card p-4 mb-4">
+    <div class="section-title mb-3"><div><h2 class="h3 mb-1">Cierre del expediente</h2><p class="subtle mb-0">El sistema valida las condiciones antes de permitir el cierre.</p></div><button class="btn btn-primary" type="button" id="close-process" disabled>Cerrar expediente</button></div>
+    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="payment-applies" checked><label class="form-check-label" for="payment-applies">El pago forma parte de este expediente</label></div>
+    <div class="row g-2" id="closure-checklist"><div class="col-12 subtle">Cargando lista de verificación...</div></div>
+  </section>
+
+  <section class="row g-4">
+    <div class="col-lg-6"><div class="glass-card table-card"><div class="p-4 border-bottom"><h2 class="h3 mb-1">Historial</h2></div><div class="list-group list-group-flush" id="timeline"></div></div></div>
+    <div class="col-lg-6"><div class="glass-card table-card"><div class="p-4 border-bottom"><h2 class="h3 mb-1">Negociaciones</h2></div><div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Fecha</th><th>Precio final</th><th>Ahorro total</th><th>Crédito</th></tr></thead><tbody id="negotiations-table"></tbody></table></div></div></div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const processId = {{ process_id|int }};
+    const currencyFormatter = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 2 });
+    let selectedQuoteId = null;
+    let processData = null;
+
+    function escapeHtml(value) {
+      return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+
+    function localDate() {
+      const current = new Date();
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${current.getFullYear()}-${pad(current.getMonth() + 1)}-${pad(current.getDate())}`;
+    }
+
+    function stateLabel(state) { return String(state || "").replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase()); }
+    function stateClass(state) { return state === "completado" || state === "recibido" ? "badge-soft-success" : state === "cancelado" ? "badge-soft-danger" : "badge-soft-warning"; }
+    function showStatus(message, kind) { const box = document.getElementById("detail-status"); box.className = `status-box ${kind === "error" ? "alert alert-danger show" : "alert alert-success show"}`; box.textContent = message; }
+
+    async function loadProviders() {
+      const response = await fetch("/api/proveedores?estado=Activo");
+      const data = await response.json();
+      const select = document.getElementById("quote-provider");
+      select.innerHTML = data.proveedores.length ? `<option value="">Selecciona un proveedor</option>${data.proveedores.map((item) => `<option value="${item.id}" data-credit="${item.dias_credito ?? ""}">${escapeHtml(item.nombre)}</option>`).join("")}` : `<option value="">Completa y activa un proveedor primero</option>`;
+    }
+
+    function renderProcess(process) {
+      processData = process;
+      document.getElementById("process-title").textContent = process.folio;
+      document.getElementById("process-description").textContent = process.necesidad;
+      const badge = document.getElementById("process-state-badge"); badge.textContent = stateLabel(process.estado); badge.className = `badge ${stateClass(process.estado)} fs-6`;
+      const summary = process.resumen;
+      document.getElementById("process-summary").innerHTML = [
+        ["Prioridad", process.prioridad], ["Proveedor", process.proveedor || "Sin seleccionar"], ["Cotizaciones", summary.cotizaciones], ["Órdenes", summary.ordenes]
+      ].map(([label, value]) => `<div class="col-6 col-xl-3"><article class="glass-card metric-card p-4 h-100"><div class="metric-label text-uppercase small fw-semibold mb-3">${label}</div><div class="h4 mb-2">${escapeHtml(value)}</div><div class="subtle small">${label === "Proveedor" ? "Selección actual" : "Registros del expediente"}</div></article></div>`).join("");
+      selectedQuoteId = process.cotizacion_seleccionada_id || selectedQuoteId;
+      document.getElementById("generate-order").disabled = !selectedQuoteId || ["orden_emitida", "seguimiento", "recepcion_parcial", "recibido", "pendiente_pago", "completado"].includes(process.estado);
+      renderQuotes(process.cotizaciones || []);
+      renderNegotiations(process.negociaciones || []);
+      renderTimeline(process.seguimiento || []);
+      renderOperational(process);
+      renderClosure(process);
+      const orders = process.ordenes || [];
+      document.getElementById("orders-summary").innerHTML = orders.length ? orders.map((order) => `<div class="border rounded-3 p-3"><div class="fw-semibold">${escapeHtml(order.numero_orden)}</div><div class="small subtle mb-2">${escapeHtml(order.proveedor)} · ${currencyFormatter.format(order.total)}</div><select class="form-select form-select-sm" data-order-state="${order.id}">${orderStateOptions(order.estado)}</select></div>`).join("") : `<div class="subtle">Todavía no hay una orden vinculada.</div>`;
+    }
+
+    function renderQuotes(quotes) {
+      const tbody = document.getElementById("quotes-table");
+      if (!quotes.length) { tbody.innerHTML = `<tr><td colspan="5" class="text-center py-5 subtle">No hay cotizaciones.</td></tr>`; document.getElementById("quote-highlights").textContent = "Agrega al menos dos cotizaciones para comparar."; return; }
+      tbody.innerHTML = quotes.map((quote) => `<tr class="${quote.id === selectedQuoteId ? "table-primary" : ""}"><td>${escapeHtml(quote.proveedor)}</td><td>${currencyFormatter.format(quote.costo_total)}</td><td>${quote.dias_credito} días</td><td>${quote.plazo_entrega_dias} días</td><td><button class="btn btn-sm btn-outline-primary" type="button" data-quote="${quote.id}">${quote.id === selectedQuoteId ? "Seleccionada" : "Marcar"}</button></td></tr>`).join("");
+      document.getElementById("select-quote").disabled = !selectedQuoteId;
+      document.getElementById("quote-highlights").innerHTML = `<div class="small subtle">Cotizaciones: ${quotes.length}. Revisa costo total, crédito y plazo antes de justificar la selección.</div>`;
+    }
+
+    function renderNegotiations(negotiations) { document.getElementById("negotiations-table").innerHTML = negotiations.length ? negotiations.map((item) => `<tr><td>${escapeHtml(item.fecha)}</td><td>${currencyFormatter.format(item.precio_negociado)}</td><td>${currencyFormatter.format(item.ahorro_total)}</td><td>${item.credito_negociado} días</td></tr>`).join("") : `<tr><td colspan="4" class="text-center py-4 subtle">Sin negociaciones registradas.</td></tr>`; }
+    function renderTimeline(events) { document.getElementById("timeline").innerHTML = events.length ? events.map((item) => `<div class="list-group-item"><div class="d-flex justify-content-between"><strong>${escapeHtml(item.tipo)}</strong><small class="subtle">${escapeHtml(item.fecha_hora)}</small></div><div class="small">${escapeHtml(item.comentario || stateLabel(item.estado))}</div></div>`).join("") : `<div class="p-4 subtle">Sin eventos registrados.</div>`; }
+    function orderStateOptions(current) { const states = ["Emitida", "En proceso", "Confirmada", "Preparación", "En tránsito", "Parcial", "Recibida", "Cancelada"]; if (!states.includes(current)) states.unshift(current); return states.map((state) => `<option ${state === current ? "selected" : ""}>${escapeHtml(state)}</option>`).join(""); }
+    function renderOperational(process) {
+      const orderId = process.ordenes?.[0]?.id || "";
+      ["followup-order", "incident-order", "reception-order", "payment-order"].forEach((id) => {
+        const field = document.getElementById(id);
+        if (!field.value) field.value = orderId;
+      });
+      if (!document.getElementById("incident-date").value) document.getElementById("incident-date").value = localDate();
+      if (!document.getElementById("reception-date").value) document.getElementById("reception-date").value = localDate();
+      if (!document.getElementById("payment-date").value) document.getElementById("payment-date").value = localDate();
+      document.getElementById("receipts-history").innerHTML = process.recepciones?.length
+        ? `<strong>Recepciones registradas:</strong> ${process.recepciones.map((item) => `${escapeHtml(item.folio)} (${escapeHtml(item.estado)})`).join(", ")}`
+        : "Sin recepciones registradas.";
+      document.getElementById("incidents-history").innerHTML = process.incidencias?.length
+        ? process.incidencias.map((incident) => `<form class="border rounded-3 p-3 mb-2" data-incident="${incident.id}"><div class="d-flex justify-content-between gap-2 mb-2"><strong>${escapeHtml(incident.folio)} · ${escapeHtml(incident.tipo)}</strong><span>${escapeHtml(incident.estado)}</span></div><div class="mb-2">${escapeHtml(incident.descripcion)}</div><label class="form-label" for="incident-resolution-${incident.id}">Resolución o justificación</label><textarea class="form-control form-control-sm mb-2" id="incident-resolution-${incident.id}" name="resolucion" rows="2">${escapeHtml(incident.resolucion || "")}</textarea><div class="d-flex gap-2"><select class="form-select form-select-sm" name="estado">${["abierta", "en_revision", "resuelta", "cancelada"].map((state) => `<option value="${state}" ${incident.estado === state ? "selected" : ""}>${escapeHtml(stateLabel(state))}</option>`).join("")}</select><button class="btn btn-sm btn-outline-primary" type="submit">Actualizar</button></div></form>`).join("")
+        : "Sin incidencias registradas.";
+      document.getElementById("payments-history").innerHTML = process.pagos?.length
+        ? process.pagos.map((payment) => `<div class="border rounded-3 p-3 mb-2"><div class="d-flex justify-content-between gap-2"><strong>${escapeHtml(payment.folio)}</strong><span class="badge ${payment.estado === "pagado" ? "badge-soft-success" : payment.estado === "vencido" ? "badge-soft-danger" : "badge-soft-warning"}">${escapeHtml(payment.estado)}</span></div><div class="mt-1">Saldo: ${currencyFormatter.format(payment.saldo)}</div>${payment.saldo > 0 ? `<form class="row g-2 mt-2" data-payment="${payment.id}"><div class="col-8"><input class="form-control form-control-sm" type="number" min="0.01" max="${payment.saldo}" step="0.01" name="monto" placeholder="Monto a aplicar" required></div><div class="col-4 d-grid"><button class="btn btn-sm btn-primary" type="submit">Aplicar</button></div></form>` : ""}</div>`).join("")
+        : "Sin obligaciones de pago registradas.";
+    }
+    function renderClosure(process) {
+      const checklist = process.cierre || { puede_cerrar: false, validaciones: [] };
+      document.getElementById("closure-checklist").innerHTML = checklist.validaciones.map((item) => `<div class="col-12 col-lg-6"><div class="border rounded-3 p-3 d-flex justify-content-between gap-3"><div><strong>${escapeHtml(item.nombre)}</strong><div class="small subtle">${escapeHtml(item.detalle)}</div></div><span class="badge ${item.cumple ? "badge-soft-success" : "badge-soft-warning"}">${item.cumple ? "Listo" : "Pendiente"}</span></div></div>`).join("");
+      document.getElementById("close-process").disabled = !checklist.puede_cerrar || process.estado === "completado" || process.estado === "cancelado";
+    }
+
+    async function loadProcess() { const response = await fetch(`/api/procesos/${processId}`); const data = await response.json(); if (!response.ok) throw new Error(data.error || "No fue posible cargar el expediente."); renderProcess(data.proceso); }
+
+    document.getElementById("quote-date").value = localDate();
+    document.getElementById("quote-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const payload = { proveedor_id: document.getElementById("quote-provider").value, sku: document.getElementById("quote-sku").value, descripcion: document.getElementById("quote-description").value, cantidad: document.getElementById("quote-quantity").value, precio_unitario: document.getElementById("quote-unit-price").value, envio: document.getElementById("quote-shipping").value, impuestos: document.getElementById("quote-taxes").value, dias_credito: document.getElementById("quote-credit").value, plazo_entrega_dias: document.getElementById("quote-delivery").value, disponibilidad: document.getElementById("quote-availability").value, fecha: document.getElementById("quote-date").value, vigencia: document.getElementById("quote-validity").value, observaciones: document.getElementById("quote-notes").value };
+      try { const response = await fetch(`/api/procesos/${processId}/cotizaciones`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); event.currentTarget.reset(); document.getElementById("quote-date").value = localDate(); await loadProcess(); } catch (error) { showStatus(error.message, "error"); }
+    });
+
+    document.getElementById("quotes-table").addEventListener("click", (event) => { const button = event.target.closest("[data-quote]"); if (!button) return; selectedQuoteId = Number(button.dataset.quote); const quote = (processData.cotizaciones || []).find((item) => item.id === selectedQuoteId); if (quote) { document.getElementById("negotiated-price").value = quote.precio_unitario; document.getElementById("negotiated-credit").value = quote.dias_credito; document.getElementById("negotiated-delivery").value = quote.plazo_entrega_dias; } renderQuotes(processData.cotizaciones || []); });
+    document.getElementById("select-quote").addEventListener("click", async () => { try { const response = await fetch(`/api/procesos/${processId}/cotizaciones/${selectedQuoteId}/seleccionar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ justificacion: document.getElementById("selection-justification").value }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); await loadProcess(); } catch (error) { showStatus(error.message, "error"); } });
+    document.getElementById("negotiation-form").addEventListener("submit", async (event) => { event.preventDefault(); if (!selectedQuoteId) { showStatus("Selecciona una cotización antes de negociar.", "error"); return; } const payload = { cotizacion_id: selectedQuoteId, precio_negociado: document.getElementById("negotiated-price").value, credito_negociado: document.getElementById("negotiated-credit").value, plazo_negociado: document.getElementById("negotiated-delivery").value, condiciones_adicionales: document.getElementById("negotiation-conditions").value, observaciones: document.getElementById("negotiation-notes").value }; try { const response = await fetch(`/api/procesos/${processId}/negociaciones`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); await loadProcess(); } catch (error) { showStatus(error.message, "error"); } });
+    document.getElementById("generate-order").addEventListener("click", async () => { try { const response = await fetch(`/api/procesos/${processId}/orden`, { method: "POST" }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(`${data.message} ${data.compra.numero_orden}`, "success"); await loadProcess(); } catch (error) { showStatus(error.message, "error"); } });
+    document.getElementById("orders-summary").addEventListener("change", async (event) => { const select = event.target.closest("[data-order-state]"); if (!select) return; try { const response = await fetch(`/api/compras/${select.dataset.orderState}/estado`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ estado: select.value }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); await loadProcess(); } catch (error) { showStatus(error.message, "error"); } });
+    document.getElementById("followup-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const payload = { tipo: document.getElementById("followup-type").value, orden_id: document.getElementById("followup-order").value, fecha_estimada: document.getElementById("followup-estimated").value, fecha_real: document.getElementById("followup-actual").value, comentario: document.getElementById("followup-comment").value };
+      try { const response = await fetch(`/api/procesos/${processId}/seguimiento`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); document.getElementById("followup-comment").value = ""; await loadProcess(); } catch (error) { showStatus(error.message, "error"); }
+    });
+    document.getElementById("incident-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const payload = { tipo: document.getElementById("incident-type").value, orden_id: document.getElementById("incident-order").value, sku: document.getElementById("incident-sku").value, fecha: document.getElementById("incident-date").value, descripcion: document.getElementById("incident-description").value };
+      try { const response = await fetch(`/api/procesos/${processId}/incidencias`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); event.currentTarget.reset(); document.getElementById("incident-date").value = localDate(); await loadProcess(); } catch (error) { showStatus(error.message, "error"); }
+    });
+    document.getElementById("reception-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const payload = { orden_id: document.getElementById("reception-order").value, fecha: document.getElementById("reception-date").value, items: [{ sku: document.getElementById("reception-sku").value, cantidad_recibida: document.getElementById("reception-received").value, cantidad_aceptada: document.getElementById("reception-accepted").value, cantidad_rechazada: document.getElementById("reception-rejected").value }], observaciones: document.getElementById("reception-notes").value };
+      try { const response = await fetch(`/api/procesos/${processId}/recepciones`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); event.currentTarget.reset(); document.getElementById("reception-date").value = localDate(); await loadProcess(); } catch (error) { showStatus(error.message, "error"); }
+    });
+    document.getElementById("payment-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const payload = { orden_id: document.getElementById("payment-order").value, factura: document.getElementById("payment-invoice").value, fecha_factura: document.getElementById("payment-date").value, dias_credito: document.getElementById("payment-credit").value || 0, monto: document.getElementById("payment-amount").value };
+      try { const response = await fetch(`/api/procesos/${processId}/pagos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); event.currentTarget.reset(); document.getElementById("payment-date").value = localDate(); await loadProcess(); } catch (error) { showStatus(error.message, "error"); }
+    });
+    document.getElementById("payments-history").addEventListener("submit", async (event) => {
+      const form = event.target.closest("form[data-payment]");
+      if (!form) return;
+      event.preventDefault();
+      try { const response = await fetch(`/api/pagos/${form.dataset.payment}/aplicar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto: form.elements.monto.value, fecha: localDate() }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); await loadProcess(); } catch (error) { showStatus(error.message, "error"); }
+    });
+    document.getElementById("incidents-history").addEventListener("submit", async (event) => {
+      const form = event.target.closest("form[data-incident]");
+      if (!form) return;
+      event.preventDefault();
+      try { const response = await fetch(`/api/incidencias/${form.dataset.incident}/estado`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ estado: form.elements.estado.value, resolucion: form.elements.resolucion.value }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); await loadProcess(); } catch (error) { showStatus(error.message, "error"); }
+    });
+    document.getElementById("payment-applies").addEventListener("change", async () => {
+      if (!processData) return;
+      try { const response = await fetch(`/api/procesos/${processId}/cierre?pago_aplica=${document.getElementById("payment-applies").checked}`); const checklist = await response.json(); if (!response.ok) throw new Error(checklist.error); renderClosure({ ...processData, cierre: checklist }); } catch (error) { showStatus(error.message, "error"); }
+    });
+    document.getElementById("close-process").addEventListener("click", async () => {
+      try { const response = await fetch(`/api/procesos/${processId}/cerrar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pago_aplica: document.getElementById("payment-applies").checked }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message, "success"); await loadProcess(); } catch (error) { showStatus(error.message, "error"); }
+    });
+
+    Promise.all([loadProviders(), loadProcess()]).catch((error) => showStatus(error.message, "error"));
+  </script>
+{% endblock %}

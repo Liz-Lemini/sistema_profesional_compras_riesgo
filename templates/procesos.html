@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Procesos de compra | Control de Compras{% endblock %}
+
+{% block content %}
+  <section class="hero p-4 p-lg-5 mb-4">
+    <div class="row g-4 align-items-center position-relative">
+      <div class="col-12">
+        <p class="text-uppercase small fw-semibold mb-2">Expedientes de abastecimiento</p>
+        <h1 class="display-5 mb-3">Procesos de compra</h1>
+        <p class="lead mb-0">Centraliza la necesidad, las cotizaciones, la decisión y la orden en un solo expediente trazable.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-4">
+    <div class="col-lg-4">
+      <div class="glass-card p-4">
+        <div class="section-title mb-3">
+          <div>
+            <h2 class="h3 mb-1">Nueva necesidad</h2>
+            <p class="subtle mb-0">El sistema generará un folio PC-AAAA-NNNN.</p>
+          </div>
+        </div>
+        <div id="process-status" class="status-box mb-3" role="status"></div>
+        <form id="process-form" class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="necesidad">Producto o necesidad</label>
+            <input class="form-control" id="necesidad" name="necesidad" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="cantidad">Cantidad</label>
+            <input class="form-control" type="number" id="cantidad" name="cantidad" min="0" step="1" value="0">
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="prioridad">Prioridad</label>
+            <select class="form-select" id="prioridad" name="prioridad">
+              <option>Media</option>
+              <option>Baja</option>
+              <option>Alta</option>
+              <option>Urgente</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="motivo">Motivo</label>
+            <textarea class="form-control" id="motivo" name="motivo" rows="2"></textarea>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="fecha_creacion">Fecha</label>
+            <input class="form-control" type="date" id="fecha_creacion" name="fecha_creacion" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="responsable">Responsable</label>
+            <input class="form-control" id="responsable" name="responsable">
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="observaciones">Observaciones</label>
+            <textarea class="form-control" id="observaciones" name="observaciones" rows="2"></textarea>
+          </div>
+          <div class="col-12 d-grid">
+            <button class="btn btn-primary btn-lg" type="submit">Crear proceso</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="glass-card table-card">
+        <div class="p-4 border-bottom">
+          <div class="section-title">
+            <div>
+              <h2 class="h3 mb-1">Expedientes</h2>
+              <p class="subtle mb-0">Busca por folio, necesidad, proveedor o responsable.</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <input class="form-control" id="process-search" placeholder="Buscar..." aria-label="Buscar proceso">
+              <select class="form-select" id="process-state" aria-label="Filtrar por estado">
+                <option value="">Todos</option>
+                <option value="pendiente_cotizacion">Pendiente de cotización</option>
+                <option value="cotizando">Cotizando</option>
+                <option value="evaluacion">Evaluación</option>
+                <option value="negociacion">Negociación</option>
+                <option value="proveedor_seleccionado">Proveedor seleccionado</option>
+                <option value="orden_emitida">Orden emitida</option>
+                <option value="seguimiento">Seguimiento</option>
+                <option value="recepcion_parcial">Recepción parcial</option>
+                <option value="recibido">Recibido</option>
+                <option value="pendiente_pago">Pendiente de pago</option>
+                <option value="completado">Completado</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+              <select class="form-select" id="process-priority" aria-label="Filtrar por prioridad"><option value="">Prioridad</option><option>Baja</option><option>Media</option><option>Alta</option><option>Urgente</option></select>
+              <select class="form-select" id="process-provider" aria-label="Filtrar por proveedor"><option value="">Proveedor</option></select>
+              <input class="form-control" type="date" id="process-from" aria-label="Desde">
+              <input class="form-control" type="date" id="process-to" aria-label="Hasta">
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Folio</th>
+                <th>Necesidad</th>
+                <th>Prioridad</th>
+                <th>Proveedor</th>
+                <th>Estado</th>
+                <th>Actualización</th>
+              </tr>
+            </thead>
+            <tbody id="processes-table">
+              <tr><td colspan="6" class="text-center py-5 subtle">Cargando procesos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function stateLabel(state) {
+      return String(state || "").replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+    }
+
+    function stateClass(state) {
+      if (state === "completado" || state === "recibido") return "badge-soft-success";
+      if (state === "cancelado") return "badge-soft-danger";
+      return "badge-soft-warning";
+    }
+
+    function showStatus(message, kind) {
+      const box = document.getElementById("process-status");
+      box.className = `status-box ${kind === "error" ? "alert alert-danger show" : "alert alert-success show"}`;
+      box.textContent = message;
+    }
+
+    async function loadProcesses() {
+      const params = new URLSearchParams({
+        q: document.getElementById("process-search").value,
+        estado: document.getElementById("process-state").value,
+        prioridad: document.getElementById("process-priority").value,
+        proveedor_id: document.getElementById("process-provider").value,
+        desde: document.getElementById("process-from").value,
+        hasta: document.getElementById("process-to").value
+      });
+      const response = await fetch(`/api/procesos?${params}`);
+      if (!response.ok) throw new Error("No fue posible cargar los procesos.");
+      const data = await response.json();
+      const tbody = document.getElementById("processes-table");
+      if (!data.procesos.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 subtle">No hay procesos para mostrar.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.procesos.map((process) => `
+        <tr>
+          <td><a class="fw-semibold" href="/procesos/${process.id}">${escapeHtml(process.folio)}</a></td>
+          <td>${escapeHtml(process.necesidad)}</td>
+          <td>${escapeHtml(process.prioridad)}</td>
+          <td>${escapeHtml(process.proveedor || "Sin seleccionar")}</td>
+          <td><span class="badge ${stateClass(process.estado)}">${escapeHtml(stateLabel(process.estado))}</span></td>
+          <td class="small subtle">${escapeHtml(process.updated_at || process.fecha_creacion)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function localDate() {
+      const current = new Date();
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${current.getFullYear()}-${pad(current.getMonth() + 1)}-${pad(current.getDate())}`;
+    }
+
+    document.getElementById("fecha_creacion").value = localDate();
+    document.getElementById("process-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        const response = await fetch("/api/procesos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget).entries()))
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "No fue posible crear el proceso.");
+        showStatus(`${data.message} Folio: ${data.proceso.folio}`, "success");
+        event.currentTarget.reset();
+        document.getElementById("fecha_creacion").value = localDate();
+        await loadProcesses();
+      } catch (error) {
+        showStatus(error.message, "error");
+      }
+    });
+
+    document.getElementById("process-search").addEventListener("input", () => loadProcesses().catch((error) => showStatus(error.message, "error")));
+    document.getElementById("process-state").addEventListener("change", () => loadProcesses().catch((error) => showStatus(error.message, "error")));
+    ["process-priority", "process-provider", "process-from", "process-to"].forEach((id) => document.getElementById(id).addEventListener("change", () => loadProcesses().catch((error) => showStatus(error.message, "error"))));
+    async function loadFilterProviders() {
+      const response = await fetch("/api/proveedores");
+      const data = await response.json();
+      document.getElementById("process-provider").innerHTML = `<option value="">Proveedor</option>${data.proveedores.map((item) => `<option value="${item.id}">${escapeHtml(item.nombre)}</option>`).join("")}`;
+    }
+    Promise.all([loadFilterProviders(), loadProcesses()]).catch((error) => showStatus(error.message, "error"));
+  </script>
+{% endblock %}

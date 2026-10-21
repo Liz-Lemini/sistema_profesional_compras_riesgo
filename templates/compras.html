@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}Compras | Control de Compras{% endblock %}
+
+{% block content %}
+  <section class="hero p-4 p-lg-5 mb-4">
+    <div class="row g-4 align-items-center position-relative">
+      <div class="col-12">
+        <p class="text-uppercase small fw-semibold mb-2">Gestión operativa</p>
+        <h1 class="display-5 mb-3">Órdenes de compra</h1>
+        <p class="lead mb-0">
+          Registra partidas, calcula totales y da seguimiento al estado de cada orden.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-4">
+    <div class="col-lg-5">
+      <div class="glass-card p-4">
+        <div class="section-title mb-3">
+          <div>
+            <h2 class="h3 mb-1">Nueva orden</h2>
+            <p class="subtle mb-0">El total se calcula con las partidas e impuestos capturados.</p>
+          </div>
+        </div>
+        <div id="purchase-status" class="status-box mb-3" role="status"></div>
+        <form id="purchase-form" class="row g-3">
+          <div class="col-md-7">
+            <label class="form-label" for="proveedor_id">Proveedor</label>
+            <select class="form-select" id="proveedor_id" name="proveedor_id" required>
+              <option value="">Cargando proveedores...</option>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label" for="factura">Factura</label>
+            <input class="form-control" id="factura" name="factura">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="fecha_orden">Fecha de orden</label>
+            <input class="form-control" type="date" id="fecha_orden" name="fecha_orden" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="dias_credito">Días de crédito</label>
+            <input class="form-control" type="number" id="dias_credito" name="dias_credito" min="0" step="1" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="fecha_entrega">Fecha de entrega</label>
+            <input class="form-control" type="date" id="fecha_entrega" name="fecha_entrega">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="estado">Estado</label>
+            <select class="form-select" id="estado" name="estado">
+              <option>Emitida</option>
+              <option>En proceso</option>
+              <option>Confirmada</option>
+              <option>Preparación</option>
+              <option>En tránsito</option>
+              <option>Parcial</option>
+              <option>Recibida</option>
+              <option>Cancelada</option>
+            </select>
+          </div>
+
+          <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label mb-0">Partidas</label>
+              <button class="btn btn-sm btn-outline-primary" type="button" id="add-item">Agregar partida</button>
+            </div>
+            <div id="items-container" class="d-grid gap-2"></div>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label" for="impuestos">Impuestos</label>
+            <input class="form-control" type="number" id="impuestos" name="impuestos" min="0" step="0.01" value="0">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="observaciones">Observaciones</label>
+            <input class="form-control" id="observaciones" name="observaciones">
+          </div>
+          <div class="col-12 d-grid">
+            <button class="btn btn-primary btn-lg" type="submit">Guardar orden</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <section class="row g-3 mb-4" id="purchase-summary">
+        <div class="col-12"><div class="glass-card p-4 loading-state"><div><div class="spinner-border text-primary mb-3" role="status"></div><p class="mb-0">Cargando resumen...</p></div></div></div>
+      </section>
+
+      <div class="glass-card table-card">
+        <div class="p-4 border-bottom">
+          <div class="section-title">
+            <div>
+              <h2 class="h3 mb-1">Órdenes registradas</h2>
+              <p class="subtle mb-0">Consulta por proveedor, orden, factura o producto.</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <input class="form-control" id="purchase-search" placeholder="Buscar..." aria-label="Buscar orden">
+              <select class="form-select" id="purchase-filter-state" aria-label="Filtrar órdenes por estado">
+                <option value="">Todos</option>
+                <option>Emitida</option>
+                <option>En proceso</option>
+                <option>Parcial</option>
+                <option>Recibida</option>
+                <option>Cancelada</option>
+                <option>Sin definir</option>
+              </select>
+              <select class="form-select" id="purchase-filter-provider" aria-label="Filtrar órdenes por proveedor"><option value="">Proveedor</option></select>
+              <input class="form-control" type="date" id="purchase-filter-from" aria-label="Desde">
+              <input class="form-control" type="date" id="purchase-filter-to" aria-label="Hasta">
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Orden</th>
+                <th>Proveedor</th>
+                <th>Fecha</th>
+                <th>Partidas</th>
+                <th>Total</th>
+                <th>Crédito</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="purchases-table">
+              <tr><td colspan="7" class="text-center py-5 subtle">Cargando órdenes...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const currencyFormatter = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 2 });
+    let itemCounter = 0;
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function showStatus(message, kind) {
+      const box = document.getElementById("purchase-status");
+      box.className = `status-box ${kind === "error" ? "alert alert-danger show" : "alert alert-success show"}`;
+      box.textContent = message;
+    }
+
+    function addItemRow(item = {}) {
+      itemCounter += 1;
+      const row = document.createElement("div");
+      row.className = "border rounded-3 p-2 purchase-item";
+      row.dataset.itemId = itemCounter;
+      row.innerHTML = `
+        <div class="row g-2 align-items-end">
+          <div class="col-md-3"><label class="form-label small">SKU</label><input class="form-control item-sku" required value="${escapeHtml(item.sku || "")}"></div>
+          <div class="col-md-4"><label class="form-label small">Descripción</label><input class="form-control item-description" required value="${escapeHtml(item.descripcion || "")}"></div>
+          <div class="col-md-2"><label class="form-label small">Cantidad</label><input class="form-control item-quantity" type="number" min="1" step="1" required value="${item.cantidad || 1}"></div>
+          <div class="col-md-2"><label class="form-label small">Precio unitario</label><input class="form-control item-price" type="number" min="0.01" step="0.01" required value="${item.precio_unitario || ""}"></div>
+          <div class="col-md-1"><button class="btn btn-outline-danger w-100 remove-item" type="button" aria-label="Eliminar partida">×</button></div>
+        </div>
+      `;
+      row.querySelector(".remove-item").addEventListener("click", () => {
+        if (document.querySelectorAll(".purchase-item").length > 1) row.remove();
+      });
+      document.getElementById("items-container").appendChild(row);
+    }
+
+    function renderSummary(summary) {
+      const cards = [
+        { label: "Órdenes", value: summary.compras, help: "Registros consultados" },
+        { label: "Vigentes", value: summary.vigentes, help: "Dentro del plazo de crédito" },
+        { label: "Vencidas", value: summary.vencidas, help: "Fuera del plazo de crédito" },
+        { label: "Monto total", value: currencyFormatter.format(summary.monto_total), help: "Total de las órdenes" }
+      ];
+      document.getElementById("purchase-summary").innerHTML = cards.map((card) => `
+        <div class="col-12 col-md-6"><article class="glass-card metric-card p-4 h-100"><div class="metric-label text-uppercase small fw-semibold mb-3">${card.label}</div><div class="h2 mb-2">${card.value}</div><div class="subtle small">${card.help}</div></article></div>
+      `).join("");
+    }
+
+    function stateClass(state) {
+      if (state === "Cancelada") return "badge-soft-danger";
+      if (state === "Recibida") return "badge-soft-success";
+      if (state === "Sin definir") return "badge-soft-warning";
+      return "badge-soft-warning";
+    }
+
+    function stateOptions(current) {
+      const states = ["Emitida", "En proceso", "Confirmada", "Preparación", "En tránsito", "Parcial", "Recibida", "Cancelada"];
+      if (!states.includes(current)) states.unshift(current);
+      return states.map((state) => `<option ${state === current ? "selected" : ""}>${escapeHtml(state)}</option>`).join("");
+    }
+
+    function renderPurchasesTable(purchases) {
+      const tbody = document.getElementById("purchases-table");
+      if (!purchases.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 subtle">No hay órdenes para mostrar.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = purchases.map((purchase) => `
+        <tr>
+          <td><div class="fw-semibold">${escapeHtml(purchase.numero_orden)}</div><div class="small subtle">${escapeHtml(purchase.factura || "Sin factura")}</div></td>
+          <td>${escapeHtml(purchase.proveedor)}</td>
+          <td>${escapeHtml(purchase.fecha_orden)}</td>
+          <td>${purchase.items.length}</td>
+          <td>${currencyFormatter.format(purchase.total)}</td>
+          <td><span class="${purchase.estado_credito === "Vencida" ? "text-danger" : ""}">${purchase.dias_restantes ?? "--"} días</span></td>
+          <td><select class="form-select form-select-sm purchase-state ${stateClass(purchase.estado)}" data-purchase-state="${purchase.id}">${stateOptions(purchase.estado)}</select></td>
+        </tr>
+      `).join("");
+    }
+
+    async function loadSuppliersSelect() {
+      const response = await fetch("/api/proveedores?estado=Activo");
+      if (!response.ok) throw new Error("No fue posible cargar proveedores");
+      const data = await response.json();
+      const select = document.getElementById("proveedor_id");
+      if (!data.proveedores.length) {
+        select.innerHTML = '<option value="">Completa y activa un proveedor primero</option>';
+        return;
+      }
+      select.innerHTML = `<option value="">Selecciona un proveedor</option>${data.proveedores.map((supplier) => `<option value="${supplier.id}" data-credit-days="${supplier.dias_credito ?? ""}">${escapeHtml(supplier.nombre)}</option>`).join("")}`;
+    }
+
+    async function loadPurchases() {
+      const params = new URLSearchParams({ q: document.getElementById("purchase-search").value, estado: document.getElementById("purchase-filter-state").value, proveedor_id: document.getElementById("purchase-filter-provider").value, desde: document.getElementById("purchase-filter-from").value, hasta: document.getElementById("purchase-filter-to").value });
+      const response = await fetch(`/api/compras?${params}`);
+      if (!response.ok) throw new Error("No fue posible cargar órdenes");
+      const data = await response.json();
+      renderSummary(data.resumen);
+      renderPurchasesTable(data.compras);
+    }
+
+    document.getElementById("proveedor_id").addEventListener("change", (event) => {
+      const option = event.target.selectedOptions[0];
+      if (option?.dataset.creditDays) document.getElementById("dias_credito").value = option.dataset.creditDays;
+    });
+
+    document.getElementById("purchase-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const items = [...document.querySelectorAll(".purchase-item")].map((row) => ({
+        sku: row.querySelector(".item-sku").value,
+        descripcion: row.querySelector(".item-description").value,
+        cantidad: row.querySelector(".item-quantity").value,
+        precio_unitario: row.querySelector(".item-price").value
+      }));
+      const formData = Object.fromEntries(new FormData(form).entries());
+      formData.items = items;
+      try {
+        const response = await fetch("/api/compras", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "No fue posible guardar la orden");
+        showStatus(data.message, "success");
+        form.reset();
+        document.getElementById("items-container").innerHTML = "";
+        addItemRow();
+        await loadPurchases();
+      } catch (error) {
+        showStatus(error.message, "error");
+      }
+    });
+
+    document.getElementById("add-item").addEventListener("click", () => addItemRow());
+    document.getElementById("purchase-search").addEventListener("input", () => loadPurchases().catch((error) => showStatus(error.message, "error")));
+    document.getElementById("purchase-filter-state").addEventListener("change", () => loadPurchases().catch((error) => showStatus(error.message, "error")));
+    ["purchase-filter-provider", "purchase-filter-from", "purchase-filter-to"].forEach((id) => document.getElementById(id).addEventListener("change", () => loadPurchases().catch((error) => showStatus(error.message, "error"))));
+    document.getElementById("purchases-table").addEventListener("change", async (event) => {
+      const select = event.target.closest("[data-purchase-state]");
+      if (!select) return;
+      try {
+        const response = await fetch(`/api/compras/${select.dataset.purchaseState}/estado`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ estado: select.value }) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "No fue posible actualizar el estado");
+        showStatus(data.message, "success");
+        await loadPurchases();
+      } catch (error) {
+        showStatus(error.message, "error");
+      }
+    });
+
+    addItemRow();
+    async function loadPurchaseFilterProviders() {
+      const response = await fetch("/api/proveedores");
+      const data = await response.json();
+      document.getElementById("purchase-filter-provider").innerHTML = `<option value="">Proveedor</option>${data.proveedores.map((supplier) => `<option value="${supplier.id}">${escapeHtml(supplier.nombre)}</option>`).join("")}`;
+    }
+    Promise.all([loadSuppliersSelect(), loadPurchaseFilterProviders(), loadPurchases()]).catch((error) => showStatus(error.message, "error"));
+  </script>
+{% endblock %}

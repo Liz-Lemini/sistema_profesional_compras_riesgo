@@ -1,0 +1,63 @@
+[
+  {
+    "id": 1,
+    "factura": "FAC-2026-001",
+    "proveedor_id": 1,
+    "sku": "ACR-PL-01",
+    "descripcion": "Placa de acero A36 3/8",
+    "fecha_compra": "2026-03-18",
+    "dias_credito": 30,
+    "monto_total": 12000.0
+  },
+  {
+    "id": 2,
+    "factura": "FAC-2026-002",
+    "proveedor_id": 1,
+    "sku": "TOR-M12-02",
+    "descripcion": "Tornilleria estructural M12",
+    "fecha_compra": "2026-03-22",
+    "dias_credito": 20,
+    "monto_total": 9000.0,
+    "estado": "En proceso"
+  },
+  {
+    "id": 3,
+    "factura": "FAC-2026-003",
+    "proveedor_id": 2,
+    "sku": "MOT-AC-10",
+    "descripcion": "Motor asincrono 10 HP",
+    "fecha_compra": "2026-01-31",
+    "dias_credito": 30,
+    "monto_total": 14000.0
+  },
+  {
+    "id": 4,
+    "factura": "FAC-2026-004",
+    "proveedor_id": 2,
+    "sku": "SEN-PR-08",
+    "descripcion": "Sensor de proximidad industrial",
+    "fecha_compra": "2026-03-10",
+    "dias_credito": 25,
+    "monto_total": 11000.0
+  },
+  {
+    "id": 5,
+    "factura": "FAC-2026-005",
+    "proveedor_id": 3,
+    "sku": "FLE-EXP-01",
+    "descripcion": "Servicio de flete express nacional",
+    "fecha_compra": "2026-01-05",
+    "dias_credito": 20,
+    "monto_total": 18000.0
+  },
+  {
+    "id": 6,
+    "factura": "FAC-2026-006",
+    "proveedor_id": 3,
+    "sku": "ALM-3PL-07",
+    "descripcion": "Almacenaje tercerizado mensual",
+    "fecha_compra": "2026-01-28",
+    "dias_credito": 15,
+    "monto_total": 16000.0
+  }
+]

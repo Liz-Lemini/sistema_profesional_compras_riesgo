@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluación | Control de Compras{% endblock %}
+
+{% block content %}
+  <section class="hero p-4 p-lg-5 mb-4">
+    <p class="text-uppercase small fw-semibold mb-2">Evidencia para la tesis</p>
+    <h1 class="display-5 mb-2">Evaluación antes y después</h1>
+    <p class="lead mb-0">Registra mediciones reales de una misma tarea para comparar el proceso manual con el uso de la herramienta.</p>
+  </section>
+  <div id="evaluation-status" class="status-box mb-4" role="status"></div>
+  <section class="row g-4 mb-4">
+    <div class="col-lg-5">
+      <div class="glass-card p-4 h-100">
+        <h2 class="h3 mb-1">Registrar medición</h2>
+        <p class="subtle mb-3">No se generan datos automáticamente.</p>
+        <form id="evaluation-form" class="row g-3">
+          <div class="col-12"><label class="form-label" for="evaluation-task">Tarea</label><select class="form-select" id="evaluation-task" required><option value="registro_proveedor">Registrar proveedor</option><option value="buscar_proveedor">Buscar proveedor</option><option value="comparar_cotizaciones">Comparar cotizaciones</option><option value="generar_orden">Generar orden</option><option value="consultar_estado">Consultar estado</option><option value="generar_reporte">Generar reporte</option></select></div>
+          <div class="col-6"><label class="form-label" for="evaluation-method">Método</label><select class="form-select" id="evaluation-method" required><option value="manual">Manual</option><option value="sistema">Sistema</option></select></div>
+          <div class="col-6"><label class="form-label" for="evaluation-date">Fecha</label><input class="form-control" type="date" id="evaluation-date" required></div>
+          <div class="col-6"><label class="form-label" for="evaluation-duration">Duración (seg.)</label><input class="form-control" type="number" id="evaluation-duration" min="0" step="0.01" required></div>
+          <div class="col-6"><label class="form-label" for="evaluation-errors">Errores</label><input class="form-control" type="number" id="evaluation-errors" min="0" step="1" value="0" required></div>
+          <div class="col-12"><label class="form-label" for="evaluation-owner">Responsable</label><input class="form-control" id="evaluation-owner"></div>
+          <div class="col-12"><label class="form-label" for="evaluation-notes">Observaciones</label><textarea class="form-control" id="evaluation-notes" rows="2"></textarea></div>
+          <div class="col-12 d-grid"><button class="btn btn-primary" type="submit">Guardar medición</button></div>
+        </form>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <div class="glass-card table-card h-100">
+        <div class="p-4 border-bottom"><div class="section-title"><div><h2 class="h3 mb-1">Comparación</h2><p class="subtle mb-0">Las celdas sin muestra muestran N/D.</p></div><div class="d-flex gap-2"><a class="btn btn-sm btn-outline-primary" href="/api/exportar/evaluacion.csv">Exportar evaluación</a><a class="btn btn-sm btn-outline-primary" href="/api/exportar/metricas.csv">Exportar métricas</a></div></div></div>
+        <div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Tarea</th><th>Manual (n)</th><th>Sistema (n)</th><th>Media manual</th><th>Media sistema</th><th>Reducción</th></tr></thead><tbody id="evaluation-summary"><tr><td colspan="6" class="text-center py-5 subtle">Cargando...</td></tr></tbody></table></div>
+      </div>
+    </div>
+  </section>
+  <section class="glass-card table-card"><div class="p-4 border-bottom"><h2 class="h3 mb-1">Mediciones registradas</h2><p class="subtle mb-0">Conserva el tamaño de muestra y los errores observados.</p></div><div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Fecha</th><th>Tarea</th><th>Método</th><th>Duración</th><th>Errores</th><th>Responsable</th><th>Observaciones</th></tr></thead><tbody id="evaluation-records"><tr><td colspan="7" class="text-center py-5 subtle">Cargando...</td></tr></tbody></table></div></section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    function escapeHtml(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
+    function localDate() { const current = new Date(); const pad = (value) => String(value).padStart(2, "0"); return `${current.getFullYear()}-${pad(current.getMonth() + 1)}-${pad(current.getDate())}`; }
+    function display(value, suffix = "") { return value === null || value === undefined ? "N/D" : `${value}${suffix}`; }
+    function taskLabel(value) { return String(value || "").replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase()); }
+    function showStatus(message, kind = "success") { const box = document.getElementById("evaluation-status"); box.className = `status-box alert alert-${kind} show`; box.textContent = message; }
+    async function loadEvaluations() {
+      const response = await fetch("/api/evaluacion"); const data = await response.json(); if (!response.ok) throw new Error(data.error);
+      document.getElementById("evaluation-summary").innerHTML = data.resumen.comparaciones.map((item) => `<tr><td>${escapeHtml(taskLabel(item.tarea))}</td><td>${item.manual_n}</td><td>${item.system_n}</td><td>${display(item.manual_mean_segundos, " seg.")}</td><td>${display(item.system_mean_segundos, " seg.")}</td><td>${display(item.reduccion_tiempo_pct, "%")}</td></tr>`).join("");
+      document.getElementById("evaluation-records").innerHTML = data.evaluaciones.length ? data.evaluaciones.map((item) => `<tr><td>${escapeHtml(item.fecha)}</td><td>${escapeHtml(taskLabel(item.tarea))}</td><td>${escapeHtml(item.metodo)}</td><td>${item.duracion_segundos} seg.</td><td>${item.errores_detectados}</td><td>${escapeHtml(item.responsable || "N/D")}</td><td>${escapeHtml(item.observaciones || "N/D")}</td></tr>`).join("") : `<tr><td colspan="7" class="text-center py-5 subtle">No hay mediciones registradas.</td></tr>`;
+    }
+    document.getElementById("evaluation-date").value = localDate();
+    document.getElementById("evaluation-form").addEventListener("submit", async (event) => {
+      event.preventDefault(); const payload = { tarea: document.getElementById("evaluation-task").value, metodo: document.getElementById("evaluation-method").value, fecha: document.getElementById("evaluation-date").value, duracion_segundos: document.getElementById("evaluation-duration").value, errores_detectados: document.getElementById("evaluation-errors").value, responsable: document.getElementById("evaluation-owner").value, observaciones: document.getElementById("evaluation-notes").value };
+      try { const response = await fetch("/api/evaluacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); showStatus(data.message); event.currentTarget.reset(); document.getElementById("evaluation-date").value = localDate(); await loadEvaluations(); } catch (error) { showStatus(error.message, "danger"); }
+    });
+    loadEvaluations().catch((error) => showStatus(error.message, "danger"));
+  </script>
+{% endblock %}

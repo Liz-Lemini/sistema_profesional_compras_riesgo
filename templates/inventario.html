@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}Inventario | Control de Compras{% endblock %}
+
+{% block content %}
+  <section class="hero p-4 p-lg-5 mb-4">
+    <div class="row g-4 align-items-center position-relative">
+      <div class="col-12">
+        <p class="text-uppercase small fw-semibold mb-2">Existencias y trazabilidad</p>
+        <h1 class="display-5 mb-3">Inventario operativo</h1>
+        <p class="lead mb-0">
+          Consulta existencias, identifica inventario rezagado y registra entradas o salidas
+          sin perder la relación entre el movimiento y el SKU.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-3 mb-4" id="inventory-summary">
+    <div class="col-12">
+      <div class="glass-card p-4 loading-state">
+        <div>
+          <div class="spinner-border text-primary mb-3" role="status"></div>
+          <p class="mb-0">Cargando indicadores de inventario...</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-4 mb-4">
+    <div class="col-12 col-xl-5">
+      <div class="glass-card p-4 h-100">
+        <div class="section-title mb-3">
+          <div>
+            <h2 class="h3 mb-1">Registrar movimiento</h2>
+            <p class="subtle mb-0">La existencia se actualiza al guardar.</p>
+          </div>
+        </div>
+        <div id="movement-feedback" class="mb-3"></div>
+        <form id="movement-form" class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="movement-sku">Artículo / SKU</label>
+            <select class="form-select" id="movement-sku" required>
+              <option value="">Selecciona un artículo</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="movement-type">Tipo</label>
+            <select class="form-select" id="movement-type" required>
+              <option value="Entrada">Entrada</option>
+              <option value="Salida">Salida</option>
+              <option value="Ajuste">Ajuste</option>
+            </select>
+          </div>
+          <div class="col-6" id="movement-direction-group" hidden>
+            <label class="form-label" for="movement-direction">Dirección del ajuste</label>
+            <select class="form-select" id="movement-direction">
+              <option value="Incremento">Incremento</option>
+              <option value="Decremento">Decremento</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="movement-quantity">Cantidad</label>
+            <input class="form-control" id="movement-quantity" type="number" min="1" step="1" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="movement-date">Fecha</label>
+            <input class="form-control" id="movement-date" type="date" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="movement-notes">Observaciones</label>
+            <textarea class="form-control" id="movement-notes" rows="3" maxlength="500"></textarea>
+          </div>
+          <div class="col-12 d-flex justify-content-end">
+            <button class="btn btn-primary" type="submit">Guardar movimiento</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-7">
+      <div class="glass-card table-card h-100">
+        <div class="p-4 border-bottom">
+          <div class="section-title">
+            <div>
+              <h2 class="h3 mb-1">Existencias registradas</h2>
+              <p class="subtle mb-0">La alerta baja se activa cuando la existencia es menor o igual al mínimo.</p>
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>SKU</th>
+                <th>Descripción</th>
+                <th>Existencia</th>
+                <th>Valor unitario</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-table">
+              <tr><td colspan="5" class="text-center py-4 subtle">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="glass-card table-card mb-4">
+    <div class="p-4 border-bottom">
+      <div class="section-title">
+        <div>
+          <h2 class="h3 mb-1">Inventario rezagado</h2>
+          <p class="subtle mb-0">Artículos con 90 días o más sin movimiento.</p>
+        </div>
+        <div class="small subtle" id="inventory-date-cut">Fecha de corte: --</div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>SKU</th>
+            <th>Descripción</th>
+            <th>Días sin movimiento</th>
+            <th>Stock</th>
+            <th>Exceso</th>
+            <th>Valor inmovilizado</th>
+            <th>Nivel</th>
+          </tr>
+        </thead>
+        <tbody id="lagged-table">
+          <tr><td colspan="7" class="text-center py-4 subtle">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="glass-card table-card">
+    <div class="p-4 border-bottom">
+      <h2 class="h3 mb-1">Últimos movimientos</h2>
+      <p class="subtle mb-0">Historial guardado en el archivo de movimientos del inventario.</p>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Fecha</th>
+            <th>SKU</th>
+            <th>Tipo</th>
+            <th>Cantidad</th>
+            <th>Observaciones</th>
+          </tr>
+        </thead>
+        <tbody id="movements-table">
+          <tr><td colspan="5" class="text-center py-4 subtle">No hay movimientos registrados.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const currencyFormatter = new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      maximumFractionDigits: 2
+    });
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function softBadgeClass(color) {
+      if (color === "danger") return "badge-soft-danger";
+      if (color === "warning") return "badge-soft-warning";
+      return "badge-soft-success";
+    }
+
+    function renderSummary(summary) {
+      const cards = [
+        { label: "Artículos monitoreados", value: summary.items_monitoreados, help: "Artículos registrados" },
+        { label: "Inventario rezagado", value: summary.inventario_rezagado, help: "90 días o más sin movimiento" },
+        { label: "Existencia baja", value: summary.inventario_bajo, help: "Existencia menor o igual al mínimo" },
+        { label: "Movimientos registrados", value: summary.movimientos, help: "Entradas y salidas trazables" },
+        { label: "Capital inmovilizado", value: currencyFormatter.format(summary.capital_inmovilizado), help: "Valor de stock rezagado" },
+        { label: "Valor en exceso", value: currencyFormatter.format(summary.valor_exceso), help: "Excedente sobre el mínimo" }
+      ];
+
+      document.getElementById("inventory-summary").innerHTML = cards.map((card) => `
+        <div class="col-12 col-md-6 col-xl-2">
+          <article class="glass-card metric-card p-4 h-100">
+            <div class="metric-label text-uppercase small fw-semibold mb-3">${card.label}</div>
+            <div class="h2 mb-2">${card.value}</div>
+            <div class="subtle small">${card.help}</div>
+          </article>
+        </div>
+      `).join("");
+    }
+
+    function renderInventory(items) {
+      const select = document.getElementById("movement-sku");
+      select.innerHTML = `<option value="">Selecciona un artículo</option>` + items.map((item) => `
+        <option value="${escapeHtml(item.sku)}">${escapeHtml(item.sku)} — ${escapeHtml(item.descripcion)}</option>
+      `).join("");
+
+      const tbody = document.getElementById("inventory-table");
+      tbody.innerHTML = items.length ? items.map((item) => `
+        <tr>
+          <td class="fw-semibold">${escapeHtml(item.sku)}</td>
+          <td>${escapeHtml(item.descripcion)}</td>
+          <td>${item.stock_actual} / mín. ${item.stock_minimo}</td>
+          <td>${currencyFormatter.format(item.valor_unitario)}</td>
+          <td><span class="badge ${item.existencia_baja ? "badge-soft-warning" : "badge-soft-success"}">${item.existencia_baja ? "Baja" : "En rango"}</span></td>
+        </tr>
+      `).join("") : `<tr><td colspan="5" class="text-center py-4 subtle">No hay artículos registrados.</td></tr>`;
+    }
+
+    function renderLaggedInventory(items) {
+      const tbody = document.getElementById("lagged-table");
+      tbody.innerHTML = items.length ? items.map((item) => `
+        <tr>
+          <td class="fw-semibold">${escapeHtml(item.sku)}</td>
+          <td>
+            <div class="fw-semibold">${escapeHtml(item.descripcion)}</div>
+            <div class="small subtle">${escapeHtml(item.categoria)}</div>
+          </td>
+          <td>${item.dias_sin_movimiento}</td>
+          <td>${item.stock_actual} / mín. ${item.stock_minimo}</td>
+          <td>${item.exceso_unidades}</td>
+          <td>${currencyFormatter.format(item.valor_inmovilizado)}</td>
+          <td><span class="badge ${softBadgeClass(item.color)}">${escapeHtml(item.nivel_resago)}</span></td>
+        </tr>
+      `).join("") : `<tr><td colspan="7" class="text-center py-4 subtle">No se detectó inventario rezagado.</td></tr>`;
+    }
+
+    function renderMovements(movements) {
+      const tbody = document.getElementById("movements-table");
+      tbody.innerHTML = movements.length ? movements.map((movement) => `
+        <tr>
+          <td>${escapeHtml(movement.fecha)}</td>
+          <td class="fw-semibold">${escapeHtml(movement.sku)}</td>
+          <td><span class="badge ${movement.tipo === "Entrada" ? "badge-soft-success" : "badge-soft-warning"}">${escapeHtml(movement.tipo)}</span></td>
+          <td>${movement.cantidad}</td>
+          <td>${escapeHtml(movement.observaciones)}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="5" class="text-center py-4 subtle">No hay movimientos registrados.</td></tr>`;
+    }
+
+    function renderFeedback(message, kind = "success") {
+      document.getElementById("movement-feedback").innerHTML = `<div class="alert alert-${kind} mb-0">${escapeHtml(message)}</div>`;
+    }
+
+    async function loadInventoryDashboard() {
+      try {
+        const response = await fetch("/api/inventario");
+        if (!response.ok) throw new Error("Respuesta no válida del servidor");
+        const data = await response.json();
+        renderSummary(data.resumen);
+        renderInventory(data.inventario);
+        renderLaggedInventory(data.inventario_rezagado);
+        renderMovements(data.movimientos);
+        document.getElementById("inventory-date-cut").textContent = `Fecha de corte: ${data.fecha_corte}`;
+      } catch (error) {
+        console.error(error);
+        renderFeedback("No fue posible cargar el inventario.", "danger");
+      }
+    }
+
+    function localDate() {
+      const current = new Date();
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${current.getFullYear()}-${pad(current.getMonth() + 1)}-${pad(current.getDate())}`;
+    }
+
+    const movementType = document.getElementById("movement-type");
+    const movementDirectionGroup = document.getElementById("movement-direction-group");
+    movementType.addEventListener("change", () => {
+      movementDirectionGroup.hidden = movementType.value !== "Ajuste";
+    });
+
+    document.getElementById("movement-date").value = localDate();
+    document.getElementById("movement-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const payload = {
+        sku: document.getElementById("movement-sku").value,
+        tipo: document.getElementById("movement-type").value,
+        direccion: document.getElementById("movement-direction").value,
+        cantidad: document.getElementById("movement-quantity").value,
+        fecha: document.getElementById("movement-date").value,
+        observaciones: document.getElementById("movement-notes").value
+      };
+
+      try {
+        const response = await fetch("/api/inventario/movimientos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "No fue posible registrar el movimiento.");
+        event.target.reset();
+        document.getElementById("movement-date").value = localDate();
+        renderFeedback(`${data.message} Existencia resultante: ${data.movimiento.stock_actual}.`);
+        await loadInventoryDashboard();
+      } catch (error) {
+        renderFeedback(error.message, "danger");
+      }
+    });
+
+    loadInventoryDashboard();
+  </script>
+{% endblock %}
